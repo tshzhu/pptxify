@@ -1,0 +1,22 @@
+# Dependencies and generated output
+node_modules/
+dist/
+public/pdfjs/
+coverage/
+
+# Local examples and project notes
+example/
+*.md
+!README.md
+
+# Local environment and tooling state
+.env
+.env.*
+!.env.example
+*.local
+*.log
+.cache/
+.tmp/
+.vscode/
+.idea/
+.DS_Store
