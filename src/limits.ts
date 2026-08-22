@@ -1,11 +1,10 @@
 export const MIN_PPI = 1;
-export const MAX_PPI = 1200;
+export const MAX_PPI = 600;
 export const DEFAULT_PPI = 600;
 
 export const MAX_FILE_BYTES = 100 * 1024 * 1024;
 export const MAX_PAGES = 120;
 export const MAX_CANVAS_SIDE = 8192;
-export const MAX_PIXELS_PER_PAGE = 50_000_000;
 export const MAX_TOTAL_PIXELS = 400_000_000;
 export const PAGE_SIZE_TOLERANCE_PT = 0.02;
 
@@ -33,11 +32,14 @@ export class ConversionError extends Error {
   }
 }
 
-export interface PageGeometry {
+export interface PageSize {
   widthPt: number;
   heightPt: number;
   widthIn: number;
   heightIn: number;
+}
+
+export interface PageGeometry extends PageSize {
   pixelWidth: number;
   pixelHeight: number;
   pixels: number;
@@ -60,34 +62,26 @@ export function parsePpi(value: number | string): number {
   return ppi;
 }
 
-export function calculatePageGeometry(
-  widthPt: number,
-  heightPt: number,
-  ppi: number,
-): PageGeometry {
+export function calculatePageSize(widthPt: number, heightPt: number): PageSize {
   if (!Number.isFinite(widthPt) || !Number.isFinite(heightPt) || widthPt <= 0 || heightPt <= 0) {
     throw new ConversionError('PDF_LOAD_FAILED', 'The PDF page size is invalid.');
   }
 
   const widthIn = widthPt / 72;
   const heightIn = heightPt / 72;
-  const scale = ppi / 72;
-  const pixelWidth = Math.ceil(widthPt * scale);
-  const pixelHeight = Math.ceil(heightPt * scale);
+  return { widthPt, heightPt, widthIn, heightIn };
+}
+
+export function calculatePageGeometry(
+  widthPt: number,
+  heightPt: number,
+  ppi: number,
+): PageGeometry {
+  const pageSize = calculatePageSize(widthPt, heightPt);
+  const pixelWidth = Math.ceil((widthPt * ppi) / 72);
+  const pixelHeight = Math.ceil((heightPt * ppi) / 72);
   const pixels = pixelWidth * pixelHeight;
-
-  if (
-    pixelWidth > MAX_CANVAS_SIDE ||
-    pixelHeight > MAX_CANVAS_SIDE ||
-    pixels > MAX_PIXELS_PER_PAGE
-  ) {
-    throw new ConversionError(
-      'PIXEL_LIMIT',
-      `One page at ${ppi} PPI needs ${formatPixels(pixels)}, which exceeds the browser safety limit. Lower the PPI.`,
-    );
-  }
-
-  return { widthPt, heightPt, widthIn, heightIn, pixelWidth, pixelHeight, pixels };
+  return { ...pageSize, pixelWidth, pixelHeight, pixels };
 }
 
 export function createPixelEstimate(
@@ -104,12 +98,18 @@ export function createPixelEstimate(
       `The estimated total of ${formatPixels(totalPixels)} exceeds the browser safety limit. Lower the PPI or use fewer pages.`,
     );
   }
+  if (geometry.pixelWidth > MAX_CANVAS_SIDE || geometry.pixelHeight > MAX_CANVAS_SIDE) {
+    throw new ConversionError(
+      'PIXEL_LIMIT',
+      `A page at ${ppi} PPI requires a ${formatDimensions(geometry.pixelWidth, geometry.pixelHeight)} canvas, which exceeds the browser's ${MAX_CANVAS_SIDE.toLocaleString('en-US')} px per-side limit. Lower the PPI.`,
+    );
+  }
 
   return {
     ...geometry,
     pageCount,
     totalPixels,
-    // This is the live Canvas RGBA lower-bound estimate, not a PNG file-size prediction.
+    // Aggregate uncompressed RGBA work estimate, not peak memory or PNG file size.
     rawMemoryBytes: totalPixels * 4,
   };
 }
@@ -160,7 +160,7 @@ export function makeOutputFileName(fileName: string, ppi: number): string {
 export function isSamePageSize(
   widthPt: number,
   heightPt: number,
-  reference: Pick<PageGeometry, 'widthPt' | 'heightPt'>,
+  reference: Pick<PageSize, 'widthPt' | 'heightPt'>,
 ): boolean {
   return (
     Math.abs(widthPt - reference.widthPt) <= PAGE_SIZE_TOLERANCE_PT &&

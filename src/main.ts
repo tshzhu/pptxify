@@ -204,12 +204,11 @@ async function handleFile(file: File): Promise<void> {
   const controller = new AbortController();
   inspectionController = controller;
   try {
-    const inspection = await inspectPdfFile(file, getPpi(), controller.signal);
+    const inspection = await inspectPdfFile(file, controller.signal);
     if (controller.signal.aborted || currentFile !== file) return;
     currentInspection = inspection;
-    currentEstimate = inspection;
     elements.fileMeta.textContent = `${formatBytes(file.size)} · ${inspection.pageCount} pages · ${formatPageSize(inspection)}`;
-    clearMessage();
+    updatePpi(getPpi());
   } catch (error) {
     if (controller.signal.aborted || currentFile !== file) return;
     currentInspection = null;
@@ -227,22 +226,31 @@ function updatePpi(value: number, announce = true): void {
     preset.classList.toggle('active', Number(preset.dataset.ppi) === value);
   }
 
+  let ppi: number;
   try {
-    parsePpi(value);
-    elements.ppiInput.setCustomValidity('');
-    if (currentInspection) {
-      currentEstimate = createPixelEstimate(
-        currentInspection.widthPt,
-        currentInspection.heightPt,
-        value,
-        currentInspection.pageCount,
-      );
-      if (announce) clearMessage();
-    }
+    ppi = parsePpi(value);
   } catch (error) {
     currentEstimate = null;
     elements.ppiInput.setCustomValidity(formatError(error));
     if (currentInspection) {
+      if (announce) showMessage(formatError(error), 'error');
+    }
+    updateControls();
+    return;
+  }
+
+  elements.ppiInput.setCustomValidity('');
+  currentEstimate = null;
+  if (currentInspection) {
+    try {
+      currentEstimate = createPixelEstimate(
+        currentInspection.widthPt,
+        currentInspection.heightPt,
+        ppi,
+        currentInspection.pageCount,
+      );
+      if (announce) clearMessage();
+    } catch (error) {
       if (announce) showMessage(formatError(error), 'error');
     }
   }

@@ -12,13 +12,14 @@ import PptxGenJS from 'pptxgenjs';
 import {
   ConversionError,
   MAX_PAGES,
-  calculatePageGeometry,
+  calculatePageSize,
   createPixelEstimate,
   isSamePageSize,
   makeOutputFileName,
   parsePpi,
   validateFileSize,
   type PageGeometry,
+  type PageSize,
   type PixelEstimate,
 } from './limits';
 
@@ -34,14 +35,17 @@ export interface ConversionProgress {
   detail: string;
 }
 
-export interface PdfInspection extends PixelEstimate {
+export interface PdfInspection extends PageSize {
   fileName: string;
+  pageCount: number;
 }
 
-export interface ConversionResult extends PdfInspection {
+export type ConversionResult = PdfInspection & PixelEstimate & {
   outputFileName: string;
   outputBlob: Blob;
-}
+};
+
+type DocumentInspection = Omit<PdfInspection, 'fileName'>;
 
 export interface ConversionOptions {
   ppi: number;
@@ -135,10 +139,9 @@ async function withPdfDocument<T>(
 
 async function inspectDocument(
   pdf: PDFDocumentProxy,
-  ppi: number,
   signal?: AbortSignal,
   onProgress?: ConversionOptions['onProgress'],
-): Promise<PixelEstimate> {
+): Promise<DocumentInspection> {
   throwIfAborted(signal);
   if (pdf.numPages <= 0) {
     throw new ConversionError('PDF_LOAD_FAILED', 'The PDF has no pages to convert.');
@@ -150,7 +153,7 @@ async function inspectDocument(
   report(onProgress, 'inspecting', 0, pdf.numPages, 5, `Inspecting the size of ${pdf.numPages} pages…`);
   const firstPage = await pdf.getPage(1);
   const firstViewport = firstPage.getViewport({ scale: 1 });
-  const reference = calculatePageGeometry(firstViewport.width, firstViewport.height, ppi);
+  const reference = calculatePageSize(firstViewport.width, firstViewport.height);
   await firstPage.cleanup();
 
   for (let pageNumber = 2; pageNumber <= pdf.numPages; pageNumber += 1) {
@@ -158,7 +161,8 @@ async function inspectDocument(
     const page = await pdf.getPage(pageNumber);
     try {
       const viewport = page.getViewport({ scale: 1 });
-      if (!isSamePageSize(viewport.width, viewport.height, reference)) {
+      const pageSize = calculatePageSize(viewport.width, viewport.height);
+      if (!isSamePageSize(pageSize.widthPt, pageSize.heightPt, reference)) {
         throw new ConversionError(
           'MIXED_PAGE_SIZE',
           `Page ${pageNumber} has a different size from page 1. All pages must use the same size.`,
@@ -177,26 +181,18 @@ async function inspectDocument(
     );
   }
 
-  const estimate = createPixelEstimate(
-    firstViewport.width,
-    firstViewport.height,
-    ppi,
-    pdf.numPages,
-  );
   report(onProgress, 'inspecting', pdf.numPages, pdf.numPages, 10, 'Page size check complete.');
-  return estimate;
+  return { ...reference, pageCount: pdf.numPages };
 }
 
 export async function inspectPdfFile(
   file: File,
-  ppi: number,
   signal?: AbortSignal,
 ): Promise<PdfInspection> {
   validateFileSize(file);
   await assertPdfSignature(file);
-  const parsedPpi = parsePpi(ppi);
-  const estimate = await withPdfDocument(file, (pdf) => inspectDocument(pdf, parsedPpi, signal));
-  return { ...estimate, fileName: file.name };
+  const inspection = await withPdfDocument(file, (pdf) => inspectDocument(pdf, signal));
+  return { ...inspection, fileName: file.name };
 }
 
 function blobToDataUrl(blob: Blob): Promise<string> {
@@ -284,7 +280,13 @@ export async function convertPdfToPptx(
   report(options.onProgress, 'loading', 0, 1, 0, 'Loading PDF…');
 
   return withPdfDocument(file, async (pdf) => {
-    const estimate = await inspectDocument(pdf, ppi, options.signal, options.onProgress);
+    const inspection = await inspectDocument(pdf, options.signal, options.onProgress);
+    const estimate = createPixelEstimate(
+      inspection.widthPt,
+      inspection.heightPt,
+      ppi,
+      inspection.pageCount,
+    );
     const pptx = new PptxGenJS();
     const layoutName = 'PDF_CUSTOM';
     pptx.defineLayout({ name: layoutName, width: estimate.widthIn, height: estimate.heightIn });
@@ -345,7 +347,7 @@ export async function convertPdfToPptx(
             type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
           });
       report(options.onProgress, 'packaging', pdf.numPages, pdf.numPages, 100, 'PPTX is ready to download.');
-      return { ...estimate, fileName: file.name, outputFileName, outputBlob };
+      return { ...inspection, ...estimate, fileName: file.name, outputFileName, outputBlob };
     } catch (error) {
       throw new ConversionError('PPTX_FAILED', `Could not create the PPTX: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
     }

@@ -10,7 +10,7 @@ works with any standard PDF.
 
 - Converts every PDF page into a full-slide PNG image.
 - Preserves the PDF page dimensions in the generated PPTX.
-- Supports configurable image density from 1 to 1200 PPI, with 600 PPI as the
+- Supports configurable image density from 1 to 600 PPI, with 600 PPI as the
   default.
 - Adds optional PowerPoint speaker notes using page-based Markdown.
 - Imports notes from `.txt`, `.md`, or existing `.pptx` files by dropping the
@@ -56,9 +56,10 @@ fonts, equations, vector artwork, and Beamer styling visually without requiring
 LaTeX or PowerPoint on the server. Slide contents, hyperlinks, animations, and
 PDF text are flattened and are not editable PowerPoint objects.
 
-The application accepts PDFs up to 100 MB and 120 pages. It also applies
-per-page and total-pixel safety limits to avoid exhausting browser memory. Lower
-the PPI or split a large PDF when a safety limit is reached.
+The application accepts PDFs up to 100 MB and 120 pages. It also applies a
+total estimated-pixel safety budget to avoid exhausting browser memory. Lower
+the PPI or split a large PDF when that budget is reached. Unusually large page
+dimensions may also exceed the browser's per-side Canvas limit.
 
 ## Local development
 
