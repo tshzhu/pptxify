@@ -12,7 +12,7 @@ works with any standard PDF.
 - Preserves the PDF page dimensions in the generated PPTX.
 - Supports configurable image density from 1 to 1200 PPI, with 600 PPI as the
   default.
-- Adds optional PowerPoint speaker notes using frame-based Markdown.
+- Adds optional PowerPoint speaker notes using page-based Markdown.
 - Imports notes from `.txt`, `.md`, or existing `.pptx` files by dropping the
   file onto the notes editor.
 - Processes the PDF and creates the PPTX locally in the browser. No document is
@@ -34,19 +34,19 @@ After conversion, click **Add notes** and enter one Markdown section for each
 PDF page that needs a note:
 
 ```markdown
-## frame: 1
+## page: 1
 Opening note
 
-## frame: 3
+## page: 3
 Note for the third page
 ```
 
-Frame numbers are 1-based PDF page numbers. The editor rejects duplicate,
-malformed, empty, or out-of-range frame sections.
+Page numbers are 1-based PDF page numbers. The editor rejects duplicate,
+malformed, empty, or out-of-range page sections.
 
 You can also drop a `.txt`, `.md`, or `.pptx` file directly onto the notes
 textarea. Text and Markdown files are copied as-is. For a PPTX file, pptxify
-extracts non-empty speaker notes and converts them into frame-based Markdown.
+extracts non-empty speaker notes and converts them into page-based Markdown.
 Legacy `.ppt` files are not supported.
 
 ## Output and limitations

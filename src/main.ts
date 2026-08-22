@@ -14,8 +14,8 @@ import {
   type ConversionProgress,
   type PdfInspection,
 } from './converter';
-import { parseFrameNotes, type FrameNotes } from './notes';
-import { annotatePptxWithNotes, extractFrameNotesFromPptx } from './pptx-notes';
+import { parsePageNotes, type PageNotes } from './notes';
+import { annotatePptxWithNotes, extractPageNotesFromPptx } from './pptx-notes';
 import { GITHUB_REPOSITORY_URL } from './site-config';
 
 type ElementMap = {
@@ -309,7 +309,7 @@ async function importNotesFile(file: File): Promise<void> {
     if (extension === 'txt' || extension === 'md') {
       elements.notesInput.value = await file.text();
     } else if (extension === 'pptx') {
-      elements.notesInput.value = await extractFrameNotesFromPptx(file);
+      elements.notesInput.value = await extractPageNotesFromPptx(file);
     } else if (extension === 'ppt') {
       throw new Error('PPT files are not supported. Drop a .pptx file instead.');
     } else {
@@ -334,9 +334,9 @@ function clearNotesFileError(): void {
 async function applyNotes(): Promise<void> {
   if (isBusy || !baseOutputBlob || !currentInspection) return;
 
-  let notes: FrameNotes;
+  let notes: PageNotes;
   try {
-    notes = parseFrameNotes(elements.notesInput.value, currentInspection.pageCount);
+    notes = parsePageNotes(elements.notesInput.value, currentInspection.pageCount);
   } catch (error) {
     showMessage(formatError(error), 'error');
     return;

@@ -1,6 +1,6 @@
 import JSZip from 'jszip';
 
-import { NotesValidationError, type FrameNotes } from './notes';
+import { NotesValidationError, type PageNotes } from './notes';
 
 const PPTX_MIME = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
 const PRESENTATION_NS = 'http://schemas.openxmlformats.org/presentationml/2006/main';
@@ -33,18 +33,18 @@ function replaceNotesText(xml: string, note: string): string {
  */
 export async function annotatePptxWithNotes(
   baseBlob: Blob,
-  notes: FrameNotes,
+  notes: PageNotes,
   signal?: AbortSignal,
 ): Promise<Blob> {
   if (signal?.aborted) throw new NotesValidationError('Adding notes was cancelled.');
 
   const zip = await JSZip.loadAsync(baseBlob);
-  for (const [frame, note] of notes) {
+  for (const [page, note] of notes) {
     if (signal?.aborted) throw new NotesValidationError('Adding notes was cancelled.');
-    const path = `ppt/notesSlides/notesSlide${frame}.xml`;
+    const path = `ppt/notesSlides/notesSlide${page}.xml`;
     const entry = zip.file(path);
     if (!entry) {
-      throw new NotesValidationError(`The PPTX is missing the notes container for frame ${frame}.`);
+      throw new NotesValidationError(`The PPTX is missing the notes container for page ${page}.`);
     }
     const xml = await entry.async('string');
     zip.file(path, replaceNotesText(xml, note));
@@ -81,8 +81,8 @@ function parseNotesXml(xml: string): string {
     .trim();
 }
 
-/** Extract non-empty PowerPoint speaker notes and format them as frame Markdown. */
-export async function extractFrameNotesFromPptx(file: Blob): Promise<string> {
+/** Extract non-empty PowerPoint speaker notes and format them as page Markdown. */
+export async function extractPageNotesFromPptx(file: Blob): Promise<string> {
   let zip: JSZip;
   try {
     zip = await JSZip.loadAsync(file);
@@ -97,23 +97,23 @@ export async function extractFrameNotesFromPptx(file: Blob): Promise<string> {
   const noteEntries = Object.keys(zip.files)
     .map((path) => {
       const match = /^ppt\/notesSlides\/notesSlide(\d+)\.xml$/.exec(path);
-      return match ? { path, frame: Number(match[1]) } : null;
+      return match ? { path, page: Number(match[1]) } : null;
     })
-    .filter((entry): entry is { path: string; frame: number } => entry !== null)
-    .sort((left, right) => left.frame - right.frame);
+    .filter((entry): entry is { path: string; page: number } => entry !== null)
+    .sort((left, right) => left.page - right.page);
 
   const sections: string[] = [];
-  for (const { path, frame } of noteEntries) {
+  for (const { path, page } of noteEntries) {
     const entry = zip.file(path);
     if (!entry) continue;
     let xml: string;
     try {
       xml = await entry.async('string');
     } catch {
-      throw new NotesValidationError(`Could not read notes for frame ${frame}.`);
+      throw new NotesValidationError(`Could not read notes for page ${page}.`);
     }
     const note = parseNotesXml(xml);
-    if (note) sections.push(`## frame: ${frame}\n${note}`);
+    if (note) sections.push(`## page: ${page}\n${note}`);
   }
   return sections.join('\n\n');
 }
