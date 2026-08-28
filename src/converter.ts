@@ -134,21 +134,6 @@ export async function inspectPdfFile(
   return { ...inspection, fileName: file.name };
 }
 
-function blobToDataUrl(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(reader.error ?? new Error('Could not read the PNG data URL.'));
-    reader.onload = () => {
-      if (typeof reader.result !== 'string') {
-        reject(new Error('The PNG data URL is invalid.'));
-        return;
-      }
-      resolve(reader.result);
-    };
-    reader.readAsDataURL(blob);
-  });
-}
-
 function canvasToPngDataUrl(canvas: HTMLCanvasElement): Promise<string> {
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => {
@@ -156,7 +141,15 @@ function canvasToPngDataUrl(canvas: HTMLCanvasElement): Promise<string> {
         reject(new ConversionError('PNG_EXPORT_FAILED', 'The browser could not export a PNG image.'));
         return;
       }
-      void blobToDataUrl(blob).then(resolve, (error) => {
+      blob.arrayBuffer().then((buffer) => {
+        const bytes = new Uint8Array(buffer);
+        let binary = '';
+        const chunkSize = 0x8000;
+        for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+          binary += String.fromCharCode(...bytes.subarray(offset, Math.min(offset + chunkSize, bytes.length)));
+        }
+        resolve(`data:image/png;base64,${btoa(binary)}`);
+      }, (error: unknown) => {
         reject(new ConversionError('PNG_EXPORT_FAILED', 'Could not read the PNG image.', { cause: error }));
       });
     }, 'image/png');
@@ -241,6 +234,7 @@ export async function convertPdfToPptx(
     pptx.subject = `Rasterized at ${ppi} PPI`;
     pptx.title = file.name.replace(/\.[^/.]+$/, '') || 'PDF presentation';
 
+    const geometry = estimate;
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
       throwIfAborted(options.signal);
       report(
@@ -253,7 +247,7 @@ export async function convertPdfToPptx(
       );
       const page = await pdf.getPage(pageNumber);
       try {
-        const imageData = await renderPageToPng(page, estimate, options.signal);
+        const imageData = await renderPageToPng(page, geometry, options.signal);
         const slide = pptx.addSlide();
         slide.background = { color: 'FFFFFF' };
         slide.addImage({

@@ -231,13 +231,11 @@ async function buildPptx(
   data: Uint8Array,
   ppi: number,
   quiet: boolean,
-  onInspection?: (inspection: DocumentInspection) => void,
-): Promise<Uint8Array> {
+): Promise<{ output: Uint8Array; inspection: DocumentInspection }> {
   return withPdf(data, async (pdf) => {
     const inspection = await inspectPdfDocument(pdf, undefined, (_current, _total, detail) => {
       log(detail, quiet);
     });
-    onInspection?.(inspection);
     const estimate = estimateDocument(inspection, ppi);
     const Pptx = PptxGenJS as unknown as new () => {
       defineLayout(layout: { name: string; width: number; height: number }): void;
@@ -284,7 +282,7 @@ async function buildPptx(
       }
     }
     const output = await pptx.write({ outputType: 'nodebuffer', compression: true });
-    return new Uint8Array(output as Buffer);
+    return { output: new Uint8Array(output as Buffer), inspection };
   });
 }
 
@@ -344,12 +342,10 @@ async function main(): Promise<void> {
     fail('The output path must be different from the input PDF.');
   }
   log(`Reading ${inputPath} (${formatBytes(data.byteLength)})…`, options.quiet);
-  let inspection: DocumentInspection | undefined;
-  const base = await buildPptx(data, options.ppi, options.quiet, (value) => { inspection = value; });
-  let output = base;
+  const result = await buildPptx(data, options.ppi, options.quiet);
+  let output = result.output;
   if (options.notesPath) {
-    if (!inspection) throw new Error('PDF inspection did not complete.');
-    output = await applyNotesFile(base, options.notesPath, inspection.pageCount);
+    output = await applyNotesFile(result.output, options.notesPath, result.inspection.pageCount);
   }
   try {
     await writeAtomically(outputPath, output);
