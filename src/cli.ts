@@ -16,6 +16,7 @@ import PptxGenJS from 'pptxgenjs';
 
 import {
   estimateDocument,
+  inspectionProgressPercent,
   inspectPdfDocument,
   type DocumentInspection,
 } from './core.js';
@@ -232,8 +233,8 @@ async function buildPptx(
   quiet: boolean,
 ): Promise<{ output: Buffer; inspection: DocumentInspection }> {
   return withPdf(data, async (pdf) => {
-    const inspection = await inspectPdfDocument(pdf, undefined, (_current, _total, detail) => {
-      log(detail, quiet);
+    const inspection = await inspectPdfDocument(pdf, undefined, (current, total, detail) => {
+      log(`${detail} (${inspectionProgressPercent(current, total)}%)`, quiet);
     });
     const estimate = estimateDocument(inspection, ppi);
     const Pptx = PptxGenJS as unknown as new () => {

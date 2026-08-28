@@ -21,6 +21,7 @@ import {
 import {
   assertPdfSignature,
   estimateDocument,
+  inspectionProgressPercent,
   inspectPdfDocument,
   throwIfAborted,
 } from './core.js';
@@ -226,7 +227,7 @@ export async function convertPdfToPptx(
           'inspecting',
           current,
           total,
-          current === total ? 10 : 5 + Math.round((current / total) * 5),
+          inspectionProgressPercent(current, total),
           detail,
         ),
       );
