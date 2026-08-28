@@ -1,6 +1,6 @@
 import JSZip from 'jszip';
 
-import { NotesValidationError, type PageNotes } from './notes';
+import { NotesValidationError, type PageNotes } from './notes.js';
 
 const PPTX_MIME = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
 const PRESENTATION_NS = 'http://schemas.openxmlformats.org/presentationml/2006/main';
@@ -32,7 +32,7 @@ function replaceNotesText(xml: string, note: string): string {
  * images or rerendering the PDF.
  */
 export async function annotatePptxWithNotes(
-  baseBlob: Blob,
+  baseBlob: Blob | ArrayBuffer | Uint8Array,
   notes: PageNotes,
   signal?: AbortSignal,
 ): Promise<Blob> {

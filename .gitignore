@@ -1,6 +1,7 @@
 # Dependencies and generated output
 node_modules/
 dist/
+dist-cli/
 public/pdfjs/
 coverage/
 
@@ -19,6 +20,7 @@ example/
 *.log
 .cache/
 .tmp/
+*.tgz
 .vscode/
 .idea/
 .DS_Store

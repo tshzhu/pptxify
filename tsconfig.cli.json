@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "dist-cli",
+    "rootDir": "src",
+    "declaration": true,
+    "sourceMap": true,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "allowImportingTsExtensions": false
+  },
+  "include": ["src/cli.ts", "src/core.ts", "src/limits.ts", "src/notes.ts", "src/pptx-notes.ts"]
+}

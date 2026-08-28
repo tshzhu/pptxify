@@ -1,84 +1,138 @@
 # pptxify
 
 **pptxify** converts a PDF presentation into a high-quality, image-based
-PowerPoint file entirely in your browser:
+PowerPoint file entirely in your browser or from a local Node.js CLI:
 
 ```text
 PDF → high-resolution PNG pages → image-based PPTX
 ```
 
 It is designed for LaTeX Beamer presentations, but it also works with standard
-PDFs whose pages all have the same dimensions. There is no backend: your PDF and
-generated presentation stay on your device.
+PDFs whose pages all have the same dimensions. Browser and CLI processing are
+local; no PDF is uploaded to a server.
 
-[Open pptxify](https://tshzhu.github.io/pptxify/)
+[Try it out in your browser](https://tshzhu.github.io/pptxify/)
 
-## Quick start
+There are two ways to use pptxify:
 
-1. Open the [pptxify website](https://tshzhu.github.io/pptxify/).
-2. Choose one PDF, or drag it onto the upload area.
-3. Keep the default **600 PPI**, or select another image resolution.
-4. Click **Convert to PPTX** and wait for the pages to render and package.
-5. Click **Download PPTX**.
+- [In your browser](#browser), with no installation.
+- [From the CLI](#cli), for repeatable local conversion in scripts and terminals.
+
+## Example
+
+Convert a presentation at 300 PPI and write the result to a chosen path:
+
+```bash
+pptxify presentation.pdf --ppi 300 --output presentation.pptx
+```
+
+The command renders every PDF page as a PNG and creates one full-page image slide
+per page.
+
+## Browser
+
+The browser app is the quickest way to make a presentation:
+
+1. Choose one PDF, or drag it onto the upload area.
+2. Keep the default **600 PPI**, or select another image resolution.
+3. Click **Convert to PPTX** and wait for inspection, rendering, and packaging.
+4. Click **Download PPTX**.
 
 Conversion never starts a download automatically. **Download PPTX** may be used
 again while the result is cached; **Reset** or choosing another PDF clears that
-result and its notes.
+result and its notes. During conversion, **Cancel** keeps the selected PDF
+available for another attempt.
 
-## Choose the image PPI
+After a PDF has been inspected, changing PPI recalculates its estimate immediately.
+If a high value exceeds the safety budget, lower the PPI and retry without
+uploading the PDF again.
 
-Image PPI controls the raster resolution of every slide image:
+## CLI
 
-- The accepted range is any integer from **1 to 600 PPI**.
-- The default is **600 PPI**.
-- The available presets are **72, 96, 150, 200, 300, and 600 PPI**.
-- Higher values produce sharper raster images, but require more memory, take
-  longer to process, and usually create larger PPTX files.
+The CLI performs the same PDF → PNG → image-based PPTX conversion locally with
+Node.js. It never overwrites the input PDF and writes the final output atomically.
 
-After a PDF has been inspected, changing the PPI recalculates its pixel estimate
-immediately. If a high value exceeds the safety budget, lower the PPI and retry;
-you do not need to upload the PDF again.
+### Installation
 
-During conversion or note processing, **Cancel** requests cancellation and keeps
-the selected PDF available for another attempt. After a successful conversion,
-**Reset** clears the PDF, generated PPTX, notes, status, and download URL.
+Install the executable from a published package, or install/link a checkout during development:
 
-## Add speaker notes
+```bash
+npm install -g pptxify
+# or, from a checkout:
+npm install -g .
+# or link the checkout:
+npm link
+```
 
-Speaker notes are optional. Convert the PDF first, then click **Add notes** and
-enter one Markdown section for each PDF page that needs a note:
+### Basic usage
+
+```bash
+pptxify presentation.pdf
+```
+
+By default this uses **600 PPI** and writes
+`presentation-600ppi.pptx` next to the input file. Progress is printed to stderr;
+the completion line with the output path is printed to stdout.
+
+### CLI options
+
+```text
+-p, --ppi <number>
+    Render at an integer PPI from 1 to 600. Default: 600.
+
+-o, --output <path>
+    Write the PPTX to this path instead of the default sibling path.
+
+    --notes <path>
+    Read UTF-8 page notes from a .txt or .md file and apply them after rendering.
+
+-q, --quiet
+    Suppress progress logs. Fatal errors are still printed to stderr.
+
+-h, --help
+    Show the complete command help.
+
+-v, --version
+    Print the installed pptxify version.
+```
+
+Examples:
+
+```bash
+# 600 PPI, default output name
+pptxify slides.pdf
+
+# 300 PPI and an explicit output path
+pptxify slides.pdf --ppi 300 --output build/slides.pptx
+
+# Add notes to pages 1 and 4
+pptxify slides.pdf --notes speaker-notes.md
+
+# Use short aliases and suppress progress output
+pptxify slides.pdf -p 150 -o slides-150.pptx --quiet
+```
+
+The process exits with status `0` only after the PPTX has been written
+successfully. Missing or invalid input, PPI errors, PDF validation failures,
+pixel/Canvas safety failures, malformed notes, and output write errors return a
+non-zero status. A failed conversion never replaces an existing output file.
+
+### CLI page notes
+
+The `--notes` file uses the same syntax as the browser editor:
 
 ```markdown
 ## page: 1
 Opening note
 
-## page: 3
-Note for the third page
+## page: 4
+Note for page four
 ```
 
-`page` is the 1-based PDF page number. Pages may be omitted when they do not need
-notes. The editor rejects malformed headings, duplicate or out-of-range page
-numbers, empty note sections, and text before the first page heading.
-
-Click **Apply notes** to update the downloadable presentation. Clicking
-**Edit notes** and applying changes again always starts from the cached,
-unannotated PPTX, so the PDF pages are not rendered again. Applying an empty
-editor restores the unannotated PPTX.
-
-The Markdown is stored as plain PowerPoint speaker-note text. It is not rendered
-as formatted Markdown and does not become an editable slide object.
-
-### Import existing notes
-
-You can drag one of these files directly onto the notes textarea:
-
-- `.txt` or `.md`: replaces the editor contents with the file text as-is.
-- `.pptx`: extracts non-empty PowerPoint speaker notes and converts them into
-  ascending `## page: N` sections.
-
-The imported text is still validated against the current PDF when you click
-**Apply notes**. Legacy `.ppt` files, unsupported file types, malformed PPTX
-packages, and unsupported notes structures are rejected.
+`N` is a 1-based PDF page number. Empty note sections, duplicate or out-of-range
+pages, malformed headings, and text before the first heading are rejected before
+the output is replaced. `.txt` and `.md` files are read as UTF-8. Applying notes
+patches the generated PPTX and does not render the PDF a second time.
 
 ## How conversion works
 
@@ -92,13 +146,13 @@ packages, and unsupported notes structures are rejected.
    page at a time.
 4. **Build the presentation.** PptxGenJS creates a custom slide layout with the
    same physical width and height as the PDF. Each PNG fills one complete slide.
-5. **Package and download.** The browser creates a file named
-   `<pdf-name>-<PPI>ppi.pptx`; the user downloads it manually.
+5. **Package and download.** The browser or CLI creates a file named
+   `<pdf-name>-<PPI>ppi.pptx`; the browser downloads it manually.
 6. **Patch notes when requested.** JSZip reads or updates the PPTX speaker-note
    XML without rerendering the PDF or changing the slide images.
 
-All of these steps run locally in the browser. No PDF, rendered page, note, or
-generated PPTX is uploaded to a server.
+All steps are local. No PDF, rendered page, note, or generated PPTX is uploaded
+to a server.
 
 ## Output model and trade-offs
 
@@ -127,9 +181,8 @@ pptxify currently enforces these checks:
 - Single-page Canvas size: at most **8192 px per side**.
 
 If the total estimate is too large, lower the PPI, use fewer pages, or split the
-PDF. If a page exceeds the per-side Canvas limit, lower the PPI. Browser memory
-and the final PPTX size also depend on the PDF contents and PNG compressibility,
-so very large conversions may still require a lower PPI or a smaller PDF.
+PDF. If a page exceeds the per-side Canvas limit, lower the PPI. Browser memory,
+CLI memory, and final PPTX size also depend on PDF contents and PNG compressibility.
 
 ## Local development
 
@@ -140,30 +193,48 @@ npm ci
 npm run dev
 ```
 
-Run the TypeScript check and production build with:
+Run the browser and CLI checks/builds with:
 
 ```bash
 npm run check
-npm run build
+npm run build:all
 ```
 
-Preview the completed production build with:
+Preview the browser production build with:
 
 ```bash
 npm run preview
 ```
 
 The Vite build uses relative asset URLs so the same static output works locally
-and below the repository path on GitHub Pages. The workflow in
-`.github/workflows/pages.yml` installs dependencies, builds `dist/`, uploads the
-Pages artifact, and deploys it whenever `main` is updated.
+and below the repository path on GitHub Pages. The CLI build writes the runnable
+Node artifact to `dist-cli/`.
+
+## GitHub Pages
+
+The workflow in `.github/workflows/pages.yml` installs dependencies, builds
+`dist/`, uploads the Pages artifact, and deploys it whenever `main` is updated.
+
+## CLI development
+
+Build and run the CLI directly from a checkout:
+
+```bash
+npm run build:cli
+node dist-cli/cli.js --help
+node dist-cli/cli.js presentation.pdf --ppi 300 --output presentation.pptx
+```
+
+The package exposes the same entry point when linked with `npm link`.
+The CLI uses PDF.js's Node build and `@napi-rs/canvas`; no browser, LaTeX,
+PowerPoint, or server is required.
 
 ## Technology
 
 - [PDF.js](https://mozilla.github.io/pdf.js/) reads and renders PDF pages.
 - [PptxGenJS](https://gitbrent.github.io/PptxGenJS/) creates the image-based PPTX.
 - [JSZip](https://stuk.github.io/jszip/) reads and updates speaker-note XML.
-- [Vite](https://vite.dev/) and TypeScript build the static website.
+- [Vite](https://vite.dev/) and TypeScript build the website and CLI.
 
 ## License
 

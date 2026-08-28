@@ -7,16 +7,16 @@ import {
   formatBytes,
   parsePpi,
   type PixelEstimate,
-} from './limits';
+} from './limits.js';
 import {
   convertPdfToPptx,
   inspectPdfFile,
   type ConversionProgress,
   type PdfInspection,
-} from './converter';
-import { parsePageNotes, type PageNotes } from './notes';
-import { annotatePptxWithNotes, extractPageNotesFromPptx } from './pptx-notes';
-import { GITHUB_REPOSITORY_URL } from './site-config';
+} from './converter.js';
+import { parsePageNotes, type PageNotes } from './notes.js';
+import { annotatePptxWithNotes, extractPageNotesFromPptx } from './pptx-notes.js';
+import { GITHUB_REPOSITORY_URL } from './site-config.js';
 
 type ElementMap = {
   dropZone: HTMLDivElement;

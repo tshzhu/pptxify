@@ -11,17 +11,19 @@ import PptxGenJS from 'pptxgenjs';
 
 import {
   ConversionError,
-  MAX_PAGES,
-  calculatePageSize,
-  createPixelEstimate,
-  isSamePageSize,
   makeOutputFileName,
   parsePpi,
   validateFileSize,
   type PageGeometry,
   type PageSize,
   type PixelEstimate,
-} from './limits';
+} from './limits.js';
+import {
+  assertPdfSignature,
+  estimateDocument,
+  inspectPdfDocument,
+  throwIfAborted,
+} from './core.js';
 
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
@@ -45,8 +47,6 @@ export type ConversionResult = PdfInspection & PixelEstimate & {
   outputBlob: Blob;
 };
 
-type DocumentInspection = Omit<PdfInspection, 'fileName'>;
-
 export interface ConversionOptions {
   ppi: number;
   signal?: AbortSignal;
@@ -55,12 +55,6 @@ export interface ConversionOptions {
 
 function assetDirectory(name: string): string {
   return new URL(`pdfjs/${name}/`, new URL(import.meta.env.BASE_URL, window.location.href)).toString();
-}
-
-function throwIfAborted(signal?: AbortSignal): void {
-  if (signal?.aborted) {
-    throw new ConversionError('CANCELLED', 'Conversion cancelled.');
-  }
 }
 
 function report(
@@ -72,13 +66,6 @@ function report(
   detail: string,
 ): void {
   onProgress?.({ stage, current, total, percent, detail });
-}
-
-async function assertPdfSignature(file: File): Promise<void> {
-  const header = new TextDecoder().decode(new Uint8Array(await file.slice(0, 5).arrayBuffer()));
-  if (header !== '%PDF-') {
-    throw new ConversionError('INVALID_FILE', 'This file is not a valid PDF (the PDF header is missing).');
-  }
 }
 
 function classifyPdfError(error: unknown): ConversionError {
@@ -137,61 +124,13 @@ async function withPdfDocument<T>(
   }
 }
 
-async function inspectDocument(
-  pdf: PDFDocumentProxy,
-  signal?: AbortSignal,
-  onProgress?: ConversionOptions['onProgress'],
-): Promise<DocumentInspection> {
-  throwIfAborted(signal);
-  if (pdf.numPages <= 0) {
-    throw new ConversionError('PDF_LOAD_FAILED', 'The PDF has no pages to convert.');
-  }
-  if (pdf.numPages > MAX_PAGES) {
-    throw new ConversionError('PAGE_LIMIT', `PDFs cannot have more than ${MAX_PAGES} pages.`);
-  }
-
-  report(onProgress, 'inspecting', 0, pdf.numPages, 5, `Inspecting the size of ${pdf.numPages} pages…`);
-  const firstPage = await pdf.getPage(1);
-  const firstViewport = firstPage.getViewport({ scale: 1 });
-  const reference = calculatePageSize(firstViewport.width, firstViewport.height);
-  await firstPage.cleanup();
-
-  for (let pageNumber = 2; pageNumber <= pdf.numPages; pageNumber += 1) {
-    throwIfAborted(signal);
-    const page = await pdf.getPage(pageNumber);
-    try {
-      const viewport = page.getViewport({ scale: 1 });
-      const pageSize = calculatePageSize(viewport.width, viewport.height);
-      if (!isSamePageSize(pageSize.widthPt, pageSize.heightPt, reference)) {
-        throw new ConversionError(
-          'MIXED_PAGE_SIZE',
-          `Page ${pageNumber} has a different size from page 1. All pages must use the same size.`,
-        );
-      }
-    } finally {
-      await page.cleanup();
-    }
-    report(
-      onProgress,
-      'inspecting',
-      pageNumber,
-      pdf.numPages,
-      5 + Math.round((pageNumber / pdf.numPages) * 5),
-      `Checking page ${pageNumber}/${pdf.numPages}…`,
-    );
-  }
-
-  report(onProgress, 'inspecting', pdf.numPages, pdf.numPages, 10, 'Page size check complete.');
-  return { ...reference, pageCount: pdf.numPages };
-}
-
 export async function inspectPdfFile(
   file: File,
   signal?: AbortSignal,
 ): Promise<PdfInspection> {
   validateFileSize(file);
   await assertPdfSignature(file);
-  const inspection = await withPdfDocument(file, (pdf) => inspectDocument(pdf, signal));
+  const inspection = await withPdfDocument(file, (pdf) => inspectPdfDocument(pdf, signal));
   return { ...inspection, fileName: file.name };
 }
 
@@ -280,13 +219,19 @@ export async function convertPdfToPptx(
   report(options.onProgress, 'loading', 0, 1, 0, 'Loading PDF…');
 
   return withPdfDocument(file, async (pdf) => {
-    const inspection = await inspectDocument(pdf, options.signal, options.onProgress);
-    const estimate = createPixelEstimate(
-      inspection.widthPt,
-      inspection.heightPt,
-      ppi,
-      inspection.pageCount,
+    const inspection = await inspectPdfDocument(
+      pdf,
+      options.signal,
+      (current, total, detail) => report(
+        options.onProgress,
+        'inspecting',
+        current,
+        total,
+        current === total ? 10 : 5 + Math.round((current / total) * 5),
+        detail,
+      ),
     );
+    const estimate = estimateDocument(inspection, ppi);
     const pptx = new PptxGenJS();
     const layoutName = 'PDF_CUSTOM';
     pptx.defineLayout({ name: layoutName, width: estimate.widthIn, height: estimate.heightIn });
