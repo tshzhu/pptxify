@@ -23,6 +23,7 @@
     "build": "tsc --noEmit && vite build",
     "build:cli": "tsc -p tsconfig.cli.json",
     "build:all": "npm run build && npm run build:cli",
+    "prepare": "npm run build:cli",
     "preview": "vite preview",
     "check": "tsc --noEmit"
   },
