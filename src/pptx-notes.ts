@@ -1,4 +1,5 @@
 import JSZip from 'jszip';
+import { DOMParser as XmlDomParser } from '@xmldom/xmldom';
 
 import { NotesValidationError, type PageNotes } from './notes.js';
 
@@ -59,8 +60,10 @@ export async function annotatePptxWithNotes(
 }
 
 function parseNotesXml(xml: string): string {
-  const document = new DOMParser().parseFromString(xml, 'application/xml');
-  if (document.getElementsByTagName('parsererror').length > 0) {
+  const document = typeof DOMParser === 'function'
+    ? new DOMParser().parseFromString(xml, 'application/xml')
+    : new XmlDomParser().parseFromString(xml, 'application/xml');
+  if (document.getElementsByTagName('parsererror').length > 0 || document.documentElement?.nodeName === 'parsererror') {
     throw new NotesValidationError('The PPTX contains malformed notes XML.');
   }
 

@@ -29,6 +29,7 @@
   },
   "dependencies": {
     "@napi-rs/canvas": "0.1.100",
+    "@xmldom/xmldom": "0.8.11",
     "jszip": "3.10.1",
     "pdfjs-dist": "5.4.624",
     "pptxgenjs": "4.0.1"
