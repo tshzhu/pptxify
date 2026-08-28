@@ -22,6 +22,10 @@ export type PageInspectionSource = {
 
 export type InspectionProgress = (current: number, total: number, detail: string) => void;
 
+export function inspectionProgressPercent(current: number, total: number): number {
+  return current === total ? 10 : 5 + Math.round((current / total) * 5);
+}
+
 /** Inspect page count and physical dimensions without applying a PPI budget. */
 export async function inspectPdfDocument(
   pdf: PageInspectionSource,
