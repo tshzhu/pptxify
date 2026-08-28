@@ -306,7 +306,16 @@ async function applyNotesFile(base: Uint8Array, notesPath: string, pageCount: nu
   if (extension !== '.txt' && extension !== '.md') {
     throw new ConversionError('PPTX_FAILED', 'The --notes file must use the .txt or .md extension.');
   }
-  const markdown = await readFile(resolve(notesPath), 'utf8');
+  let markdown: string;
+  try {
+    markdown = await readFile(resolve(notesPath), 'utf8');
+  } catch (error) {
+    throw new ConversionError(
+      'PPTX_FAILED',
+      `Could not read notes file ${resolve(notesPath)}: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error },
+    );
+  }
   const notes = parsePageNotes(markdown, pageCount);
   const annotated = await annotatePptxWithNotes(Buffer.from(base), notes);
   return new Uint8Array(await annotated.arrayBuffer());
@@ -342,7 +351,15 @@ async function main(): Promise<void> {
     if (!inspection) throw new Error('PDF inspection did not complete.');
     output = await applyNotesFile(base, options.notesPath, inspection.pageCount);
   }
-  await writeAtomically(outputPath, output);
+  try {
+    await writeAtomically(outputPath, output);
+  } catch (error) {
+    throw new ConversionError(
+      'PPTX_FAILED',
+      `Could not write output PPTX ${outputPath}: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error },
+    );
+  }
   process.stdout.write(`Wrote ${outputPath} (${formatBytes(output.byteLength)})\n`);
 }
 
