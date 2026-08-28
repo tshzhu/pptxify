@@ -47,6 +47,9 @@ After a PDF has been inspected, changing PPI recalculates its estimate immediate
 If a high value exceeds the safety budget, lower the PPI and retry without
 uploading the PDF again.
 
+The browser keeps the same PDF inspection while converting, so it does not repeat
+the page-count and page-size scan immediately before rendering.
+
 ## CLI
 
 The CLI performs the same PDF → PNG → image-based PPTX conversion locally with
@@ -143,7 +146,7 @@ patches the generated PPTX and does not render the PDF a second time.
    before conversion begins.
 3. **Render serially.** PDF.js renders one page at a time onto a white Canvas and
    exports it as a PNG. Serial rendering keeps the active Canvas workload to one
-   page at a time.
+   page at a time while avoiding unsafe parallel memory growth.
 4. **Build the presentation.** PptxGenJS creates a custom slide layout with the
    same physical width and height as the PDF. Each PNG fills one complete slide.
 5. **Package and download.** The browser or CLI creates a file named
