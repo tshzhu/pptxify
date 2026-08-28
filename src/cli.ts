@@ -15,7 +15,6 @@ import {
 import PptxGenJS from 'pptxgenjs';
 
 import {
-  assertPdfSignature,
   estimateDocument,
   inspectPdfDocument,
   type DocumentInspection,
@@ -191,11 +190,11 @@ async function withPdf<T>(data: Uint8Array, callback: (pdf: PDFDocumentProxy) =>
   }
 }
 
-function canvasToPng(canvas: CanvasLike & { toBuffer(mime: 'image/png'): Buffer }): Uint8Array {
-  return new Uint8Array(canvas.toBuffer('image/png'));
+function canvasToPng(canvas: CanvasLike & { toBuffer(mime: 'image/png'): Buffer }): Buffer {
+  return canvas.toBuffer('image/png');
 }
 
-async function renderPageToPng(page: PDFPageProxy, geometry: PageGeometry): Promise<Uint8Array> {
+async function renderPageToPng(page: PDFPageProxy, geometry: PageGeometry): Promise<Buffer> {
   const scale = geometry.pixelWidth / geometry.widthPt;
   const viewport = page.getViewport({ scale });
   const canvas = createCanvas(geometry.pixelWidth, geometry.pixelHeight) as unknown as CanvasLike & {
@@ -216,8 +215,8 @@ async function renderPageToPng(page: PDFPageProxy, geometry: PageGeometry): Prom
   return image;
 }
 
-function dataUrlFromPng(png: Uint8Array): string {
-  return `data:image/png;base64,${Buffer.from(png).toString('base64')}`;
+function dataUrlFromPng(png: Buffer): string {
+  return `data:image/png;base64,${png.toString('base64')}`;
 }
 
 function defaultOutputPath(inputPath: string, ppi: number): string {
@@ -231,7 +230,7 @@ async function buildPptx(
   data: Uint8Array,
   ppi: number,
   quiet: boolean,
-): Promise<{ output: Uint8Array; inspection: DocumentInspection }> {
+): Promise<{ output: Buffer; inspection: DocumentInspection }> {
   return withPdf(data, async (pdf) => {
     const inspection = await inspectPdfDocument(pdf, undefined, (_current, _total, detail) => {
       log(detail, quiet);
@@ -282,11 +281,11 @@ async function buildPptx(
       }
     }
     const output = await pptx.write({ outputType: 'nodebuffer', compression: true });
-    return { output: new Uint8Array(output as Buffer), inspection };
+    return { output: output as Buffer, inspection };
   });
 }
 
-async function writeAtomically(path: string, data: Uint8Array): Promise<void> {
+async function writeAtomically(path: string, data: Uint8Array | Buffer): Promise<void> {
   const target = resolve(path);
   await mkdir(dirname(target), { recursive: true });
   const temporary = join(dirname(target), `.${target.split('/').pop()}.tmp-${process.pid}-${Date.now()}`);
@@ -299,7 +298,7 @@ async function writeAtomically(path: string, data: Uint8Array): Promise<void> {
   }
 }
 
-async function applyNotesFile(base: Uint8Array, notesPath: string, pageCount: number): Promise<Uint8Array> {
+async function applyNotesFile(base: Uint8Array | Buffer, notesPath: string, pageCount: number): Promise<Buffer> {
   const extension = extname(notesPath).toLowerCase();
   if (extension !== '.txt' && extension !== '.md') {
     throw new ConversionError('PPTX_FAILED', 'The --notes file must use the .txt or .md extension.');
@@ -315,8 +314,8 @@ async function applyNotesFile(base: Uint8Array, notesPath: string, pageCount: nu
     );
   }
   const notes = parsePageNotes(markdown, pageCount);
-  const annotated = await annotatePptxWithNotes(Buffer.from(base), notes);
-  return new Uint8Array(await annotated.arrayBuffer());
+  const annotated = await annotatePptxWithNotes(base, notes);
+  return Buffer.from(await annotated.arrayBuffer());
 }
 
 async function main(): Promise<void> {
@@ -336,14 +335,16 @@ async function main(): Promise<void> {
       { cause: error },
     );
   }
-  await assertPdfSignature(new Blob([new Uint8Array(data)]));
+  if (data.byteLength < 5 || new TextDecoder().decode(data.subarray(0, 5)) !== '%PDF-') {
+    throw new ConversionError('INVALID_FILE', 'This file is not a valid PDF (the PDF header is missing).');
+  }
   const outputPath = resolve(options.outputPath ?? defaultOutputPath(inputPath, options.ppi));
   if (outputPath === inputPath) {
     fail('The output path must be different from the input PDF.');
   }
   log(`Reading ${inputPath} (${formatBytes(data.byteLength)})…`, options.quiet);
   const result = await buildPptx(data, options.ppi, options.quiet);
-  let output = result.output;
+  let output: Uint8Array | Buffer = result.output;
   if (options.notesPath) {
     output = await applyNotesFile(result.output, options.notesPath, result.inspection.pageCount);
   }

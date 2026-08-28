@@ -269,6 +269,7 @@ async function startConversion(): Promise<void> {
   try {
     const result = await convertPdfToPptx(currentFile, {
       ppi: getPpi(),
+      inspection: currentInspection ?? undefined,
       signal: conversionController.signal,
       onProgress: showProgress,
     });

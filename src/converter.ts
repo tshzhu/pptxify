@@ -40,6 +40,7 @@ export interface ConversionProgress {
 export interface PdfInspection extends PageSize {
   fileName: string;
   pageCount: number;
+  fileSize: number;
 }
 
 export type ConversionResult = PdfInspection & PixelEstimate & {
@@ -51,6 +52,7 @@ export interface ConversionOptions {
   ppi: number;
   signal?: AbortSignal;
   onProgress?: (progress: ConversionProgress) => void;
+  inspection?: PdfInspection;
 }
 
 function assetDirectory(name: string): string {
@@ -131,7 +133,7 @@ export async function inspectPdfFile(
   validateFileSize(file);
   await assertPdfSignature(file);
   const inspection = await withPdfDocument(file, (pdf) => inspectPdfDocument(pdf, signal));
-  return { ...inspection, fileName: file.name };
+  return { ...inspection, fileName: file.name, fileSize: file.size };
 }
 
 function canvasToPngDataUrl(canvas: HTMLCanvasElement): Promise<string> {
@@ -212,18 +214,22 @@ export async function convertPdfToPptx(
   report(options.onProgress, 'loading', 0, 1, 0, 'Loading PDF…');
 
   return withPdfDocument(file, async (pdf) => {
-    const inspection = await inspectPdfDocument(
-      pdf,
-      options.signal,
-      (current, total, detail) => report(
-        options.onProgress,
-        'inspecting',
-        current,
-        total,
-        current === total ? 10 : 5 + Math.round((current / total) * 5),
-        detail,
-      ),
-    );
+    const inspection = options.inspection
+      && options.inspection.fileName === file.name
+      && options.inspection.fileSize === file.size
+      ? options.inspection
+      : await inspectPdfDocument(
+        pdf,
+        options.signal,
+        (current, total, detail) => report(
+          options.onProgress,
+          'inspecting',
+          current,
+          total,
+          current === total ? 10 : 5 + Math.round((current / total) * 5),
+          detail,
+        ),
+      );
     const estimate = estimateDocument(inspection, ppi);
     const pptx = new PptxGenJS();
     const layoutName = 'PDF_CUSTOM';
@@ -286,7 +292,7 @@ export async function convertPdfToPptx(
             type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
           });
       report(options.onProgress, 'packaging', pdf.numPages, pdf.numPages, 100, 'PPTX is ready to download.');
-      return { ...inspection, ...estimate, fileName: file.name, outputFileName, outputBlob };
+      return { ...inspection, ...estimate, fileName: file.name, fileSize: file.size, outputFileName, outputBlob };
     } catch (error) {
       throw new ConversionError('PPTX_FAILED', `Could not create the PPTX: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
     }
