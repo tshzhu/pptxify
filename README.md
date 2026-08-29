@@ -20,10 +20,11 @@ There are two ways to use PPTXify:
 
 ## Example
 
-Convert a presentation at 300 PPI and write the result to a chosen path:
+After completing the local checkout and build steps below, convert a
+presentation at 300 PPI and write the result to a chosen path:
 
 ```bash
-pptxify presentation.pdf --ppi 300 --output presentation.pptx
+node dist-cli/cli.js presentation.pdf --ppi 300 --output presentation.pptx
 ```
 
 The command renders every PDF page as a PNG and creates one full-page image slide
@@ -55,27 +56,39 @@ the page-count and page-size scan immediately before rendering.
 The CLI performs the same PDF → PNG → image-based PPTX conversion locally with
 Node.js. It never overwrites the input PDF and writes the final output atomically.
 
-### Installation
+### Local checkout
 
-Install the executable from a published package, or install/link a checkout during development:
+PPTXify is not currently published to the npm registry. Use a local clone of
+this repository instead:
 
 ```bash
-npm install -g pptxify
-# or, from a checkout:
-npm install -g .
-# or link the checkout:
-npm link
+git clone https://github.com/tshzhu/pptxify.git
+cd pptxify
+npm ci
+npm run build:all
 ```
+
+`npm ci` installs the exact dependency versions recorded in `package-lock.json`
+into this checkout. It does not install a global `pptxify` command. The
+`private` package metadata also prevents accidental npm publication. The build
+creates the browser site in `dist/` and the local Node.js CLI in `dist-cli/`.
+
+Use `npm run build` when you only need the browser site, `npm run build:cli` when
+you only need the CLI, or `npm run build:all` to build both outputs.
 
 ### Basic usage
 
 ```bash
-pptxify presentation.pdf
+node dist-cli/cli.js presentation.pdf
 ```
 
 By default this uses **600 PPI** and writes
 `presentation-600ppi.pptx` next to the input file. Progress is printed to stderr;
 the completion line with the output path is printed to stdout.
+
+The CLI executable name declared in `package.json` is `pptxify`, but this
+repository does not publish or globally install that executable. From a clone,
+invoke the built entry point with `node dist-cli/cli.js` as shown above.
 
 ### CLI options
 
@@ -96,23 +109,23 @@ the completion line with the output path is printed to stdout.
     Show the complete command help.
 
 -v, --version
-    Print the installed PPTXify version.
+    Print the version declared by this local checkout's package.json.
 ```
 
 Examples:
 
 ```bash
 # 600 PPI, default output name
-pptxify slides.pdf
+node dist-cli/cli.js slides.pdf
 
 # 300 PPI and an explicit output path
-pptxify slides.pdf --ppi 300 --output build/slides.pptx
+node dist-cli/cli.js slides.pdf --ppi 300 --output build/slides.pptx
 
 # Add notes to pages 1 and 4
-pptxify slides.pdf --notes speaker-notes.md
+node dist-cli/cli.js slides.pdf --notes speaker-notes.md
 
 # Use short aliases and suppress progress output
-pptxify slides.pdf -p 150 -o slides-150.pptx --quiet
+node dist-cli/cli.js slides.pdf -p 150 -o slides-150.pptx --quiet
 ```
 
 The process exits with status `0` only after the PPTX has been written
@@ -226,7 +239,7 @@ The workflow in `.github/workflows/pages.yml` installs dependencies, builds
 
 ## CLI development
 
-Build and run the CLI directly from a checkout:
+Build and run the CLI directly from the local checkout:
 
 ```bash
 npm run build:cli
@@ -234,7 +247,6 @@ node dist-cli/cli.js --help
 node dist-cli/cli.js presentation.pdf --ppi 300 --output presentation.pptx
 ```
 
-The package exposes the same entry point when linked with `npm link`.
 The CLI uses PDF.js's Node build and `@napi-rs/canvas`; no browser, LaTeX,
 PowerPoint, or server is required.
 

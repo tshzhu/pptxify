@@ -1,7 +1,8 @@
 {
   "name": "pptxify",
   "version": "0.1.0",
-  "description": "Convert PDF pages to high-quality image-based PPTX files in the browser.",
+  "private": true,
+  "description": "Convert PDF pages to high-quality image-based PPTX files in the browser or with the local CLI.",
   "homepage": "https://tshzhu.github.io/pptxify/",
   "repository": {
     "type": "git",
