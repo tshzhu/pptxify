@@ -31,25 +31,6 @@ export function chooseRenderConcurrency(pagePixels: number, availableWorkers?: n
   return workers >= 2 && Number.isFinite(pagePixels) && pagePixels > 0 && pagePixels <= MAX_PARALLEL_PAGE_PIXELS ? 2 : 1;
 }
 
-export async function mapWithConcurrency<T>(
-  count: number,
-  concurrency: number,
-  worker: (index: number) => Promise<T>,
-): Promise<T[]> {
-  const results = new Array<T>(count);
-  let next = 0;
-  async function run(): Promise<void> {
-    while (true) {
-      const index = next;
-      next += 1;
-      if (index >= count) return;
-      results[index] = await worker(index);
-    }
-  }
-  await Promise.all(Array.from({ length: Math.max(1, Math.min(count, Math.floor(concurrency))) }, run));
-  return results;
-}
-
 /**
  * Render indexed work with a small bounded window, consuming results in input
  * order so callers do not have to retain the entire document in memory.

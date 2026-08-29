@@ -20,7 +20,7 @@ import {
   chooseRenderConcurrency,
   inspectionProgressPercent,
   inspectPdfDocument,
-  mapWithConcurrency,
+  processInOrder,
   type DocumentInspection,
 } from './core.js';
 import {
@@ -258,7 +258,7 @@ async function buildPptx(
     pptx.title = 'PDF presentation';
 
     const concurrency = chooseRenderConcurrency(estimate.pixels, availableParallelism());
-    const imageData = await mapWithConcurrency(pdf.numPages, concurrency, async (index) => {
+    await processInOrder(pdf.numPages, concurrency, async (index) => {
       const pageNumber = index + 1;
       const page = await pdf.getPage(pageNumber);
       try {
@@ -267,12 +267,12 @@ async function buildPptx(
       } finally {
         await page.cleanup();
       }
-    });
-    for (let pageNumber = 1; pageNumber <= imageData.length; pageNumber += 1) {
+    }, async (index, imageData) => {
+      const pageNumber = index + 1;
       const slide = pptx.addSlide();
       slide.background = { color: 'FFFFFF' };
       slide.addImage({
-        data: imageData[pageNumber - 1],
+        data: imageData,
         x: 0,
         y: 0,
         w: estimate.widthIn,
@@ -281,7 +281,7 @@ async function buildPptx(
         objectName: `PDF page ${pageNumber}`,
       });
       slide.addNotes('');
-    }
+    });
     const output = await pptx.write({ outputType: 'nodebuffer', compression: true });
     return { output: output as Buffer, inspection };
   });
