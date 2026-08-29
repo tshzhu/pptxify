@@ -191,11 +191,7 @@ async function withPdf<T>(data: Uint8Array, callback: (pdf: PDFDocumentProxy) =>
   }
 }
 
-function canvasToPng(canvas: CanvasLike & { toBuffer(mime: 'image/png'): Buffer }): Buffer {
-  return canvas.toBuffer('image/png');
-}
-
-async function renderPageToPng(page: PDFPageProxy, geometry: PageGeometry): Promise<Buffer> {
+async function renderPageToDataUrl(page: PDFPageProxy, geometry: PageGeometry): Promise<string> {
   const scale = geometry.pixelWidth / geometry.widthPt;
   const viewport = page.getViewport({ scale });
   const canvas = createCanvas(geometry.pixelWidth, geometry.pixelHeight) as unknown as CanvasLike & {
@@ -210,14 +206,12 @@ async function renderPageToPng(page: PDFPageProxy, geometry: PageGeometry): Prom
     viewport,
     intent: 'print',
   }).promise;
-  const image = canvasToPng(canvas);
+  // Let Skia perform PNG encoding and Base64 conversion natively. PptxGenJS
+  // accepts a Data URL, so an intermediate Buffer would only add a copy.
+  const image = (canvas as unknown as { toDataURL(mime: 'image/png'): string }).toDataURL('image/png');
   canvas.width = 1;
   canvas.height = 1;
   return image;
-}
-
-function dataUrlFromPng(png: Buffer): string {
-  return `data:image/png;base64,${png.toString('base64')}`;
 }
 
 function defaultOutputPath(inputPath: string, ppi: number): string {
@@ -264,11 +258,11 @@ async function buildPptx(
       const page = await pdf.getPage(pageNumber);
       try {
         log(`Rendering page ${pageNumber}/${pdf.numPages}…`, quiet);
-        const png = await renderPageToPng(page, estimate);
+        const imageData = await renderPageToDataUrl(page, estimate);
         const slide = pptx.addSlide();
         slide.background = { color: 'FFFFFF' };
         slide.addImage({
-          data: dataUrlFromPng(png),
+          data: imageData,
           x: 0,
           y: 0,
           w: estimate.widthIn,
