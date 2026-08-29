@@ -282,7 +282,9 @@ async function buildPptx(
       });
       slide.addNotes('');
     });
-    const output = await pptx.write({ outputType: 'nodebuffer', compression: true });
+    // PNG payloads are already compressed; skipping ZIP DEFLATE avoids a
+    // second compression pass over the largest part of the presentation.
+    const output = await pptx.write({ outputType: 'nodebuffer', compression: false });
     return { output: output as Buffer, inspection };
   });
 }

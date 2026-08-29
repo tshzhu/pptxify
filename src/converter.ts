@@ -247,7 +247,14 @@ export async function convertPdfToPptx(
     const concurrency = chooseRenderConcurrency(geometry.pixels);
     await processInOrder(pdf.numPages, concurrency, async (index) => {
       const pageNumber = index + 1;
-      report(options.onProgress, 'rendering', pageNumber - 1, pdf.numPages, 10 + Math.round((index / pdf.numPages) * 80), `Rendering page ${pageNumber}/${pdf.numPages}…`);
+      report(
+        options.onProgress,
+        'rendering',
+        pageNumber - 1,
+        pdf.numPages,
+        10 + Math.round((index / pdf.numPages) * 80),
+        `Rendering page ${pageNumber}/${pdf.numPages}…`,
+      );
       const page = await pdf.getPage(pageNumber);
       try {
         return await renderPageToPng(page, geometry, options.signal);
@@ -256,7 +263,14 @@ export async function convertPdfToPptx(
       }
     }, async (index, image) => {
       const pageNumber = index + 1;
-      report(options.onProgress, 'rendering', pageNumber, pdf.numPages, 10 + Math.round((pageNumber / pdf.numPages) * 80), `Rendered page ${pageNumber}/${pdf.numPages}.`);
+      report(
+        options.onProgress,
+        'rendering',
+        pageNumber,
+        pdf.numPages,
+        10 + Math.round((pageNumber / pdf.numPages) * 80),
+        `Rendered page ${pageNumber}/${pdf.numPages}.`,
+      );
       const slide = pptx.addSlide();
       slide.background = { color: 'FFFFFF' };
       slide.addImage({
@@ -277,7 +291,9 @@ export async function convertPdfToPptx(
     report(options.onProgress, 'packaging', pdf.numPages, pdf.numPages, 92, 'Packaging PPTX…');
     try {
       const outputFileName = makeOutputFileName(file.name, ppi);
-      const output = await pptx.write({ outputType: 'blob', compression: true });
+      // PNG payloads are already compressed; skipping ZIP DEFLATE avoids a
+      // second compression pass over the largest part of the presentation.
+      const output = await pptx.write({ outputType: 'blob', compression: false });
       const outputBlob = output instanceof Blob
         ? output
         : new Blob([copyBytesToArrayBuffer(output)], {

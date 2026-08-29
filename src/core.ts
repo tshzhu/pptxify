@@ -28,7 +28,12 @@ export function chooseRenderConcurrency(pagePixels: number, availableWorkers?: n
   const workers = availableWorkers ?? (
     typeof navigator === 'undefined' ? 1 : Math.max(1, navigator.hardwareConcurrency || 1)
   );
-  return workers >= 2 && Number.isFinite(pagePixels) && pagePixels > 0 && pagePixels <= MAX_PARALLEL_PAGE_PIXELS ? 2 : 1;
+  return workers >= 2
+    && Number.isFinite(pagePixels)
+    && pagePixels > 0
+    && pagePixels <= MAX_PARALLEL_PAGE_PIXELS
+    ? 2
+    : 1;
 }
 
 /**
@@ -45,7 +50,9 @@ export async function processInOrder<T>(
 
   const inFlight = new Map<number, Promise<T>>();
   let nextToStart = 0;
-  const windowSize = Math.max(1, Math.min(count, Math.floor(concurrency)));
+  const windowSize = Number.isFinite(concurrency)
+    ? Math.max(1, Math.min(count, Math.floor(concurrency)))
+    : 1;
   const startMore = (): void => {
     while (nextToStart < count && inFlight.size < windowSize) {
       const index = nextToStart;
@@ -54,8 +61,8 @@ export async function processInOrder<T>(
     }
   };
 
-  startMore();
   try {
+    startMore();
     for (let index = 0; index < count; index += 1) {
       const promise = inFlight.get(index);
       if (!promise) throw new Error(`Missing work item ${index}.`);

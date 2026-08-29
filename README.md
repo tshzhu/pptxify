@@ -144,9 +144,11 @@ patches the generated PPTX and does not render the PDF a second time.
 2. **Estimate the output.** The selected PPI determines each page's pixel width
    and height. The app checks the total estimated pixels and Canvas dimensions
    before conversion begins.
-3. **Render serially.** PDF.js renders one page at a time onto a white Canvas and
-   exports it as a PNG. Serial rendering keeps the active Canvas workload to one
-   page at a time while avoiding unsafe parallel memory growth.
+3. **Render with bounded concurrency.** PDF.js renders onto white Canvases and
+   exports each page as a PNG. Small pages may use at most two in-flight renders
+   when the runtime has multiple workers; larger pages stay serial to avoid unsafe
+   memory growth. Images are inserted into the PPTX in PDF page order, so the
+   output remains deterministic without retaining every rendered page in memory.
 4. **Build the presentation.** PptxGenJS creates a custom slide layout with the
    same physical width and height as the PDF. Each PNG fills one complete slide.
 5. **Package and download.** The browser or CLI creates a file named
@@ -156,6 +158,10 @@ patches the generated PPTX and does not render the PDF a second time.
 
 All steps are local. No PDF, rendered page, note, or generated PPTX is uploaded
 to a server.
+
+PPTX packaging stores the rendered PNGs without applying a second ZIP compression
+pass. PNG is already compressed, so this keeps conversion responsive while
+leaving image bytes and visual quality unchanged.
 
 ## Output model and trade-offs
 
