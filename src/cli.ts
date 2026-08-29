@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { dirname, extname, join, parse, resolve } from 'node:path';
 import { availableParallelism } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -27,6 +27,7 @@ import {
   ConversionError,
   formatBytes,
   parsePpi,
+  validateFileSize,
   type PageGeometry,
 } from './limits.js';
 import { annotatePptxWithNotes } from './pptx-notes.js';
@@ -329,6 +330,17 @@ async function main(): Promise<void> {
     return;
   }
   const inputPath = resolve(options.inputPath);
+  let inputSize: number;
+  try {
+    inputSize = (await stat(inputPath)).size;
+  } catch (error) {
+    throw new ConversionError(
+      'INVALID_FILE',
+      `Could not read input PDF ${inputPath}: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error },
+    );
+  }
+  validateFileSize({ size: inputSize });
   let data: Uint8Array;
   try {
     data = new Uint8Array(await readFile(inputPath));
@@ -339,6 +351,7 @@ async function main(): Promise<void> {
       { cause: error },
     );
   }
+  validateFileSize({ size: data.byteLength });
   if (data.byteLength < 5 || new TextDecoder().decode(data.subarray(0, 5)) !== '%PDF-') {
     throw new ConversionError('INVALID_FILE', 'This file is not a valid PDF (the PDF header is missing).');
   }

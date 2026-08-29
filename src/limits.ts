@@ -95,13 +95,13 @@ export function createPixelEstimate(
   if (totalPixels > MAX_TOTAL_PIXELS) {
     throw new ConversionError(
       'PIXEL_LIMIT',
-      `The estimated total of ${formatPixels(totalPixels)} exceeds the browser safety limit. Lower the PPI or use fewer pages.`,
+      `The estimated total of ${formatPixels(totalPixels)} exceeds the safety limit. Lower the PPI or use fewer pages.`,
     );
   }
   if (geometry.pixelWidth > MAX_CANVAS_SIDE || geometry.pixelHeight > MAX_CANVAS_SIDE) {
     throw new ConversionError(
       'PIXEL_LIMIT',
-      `A page at ${ppi} PPI requires a ${formatDimensions(geometry.pixelWidth, geometry.pixelHeight)} canvas, which exceeds the browser's ${MAX_CANVAS_SIDE.toLocaleString('en-US')} px per-side limit. Lower the PPI.`,
+      `A page at ${ppi} PPI requires a ${formatDimensions(geometry.pixelWidth, geometry.pixelHeight)} canvas, which exceeds the ${MAX_CANVAS_SIDE.toLocaleString('en-US')} px per-side limit. Lower the PPI.`,
     );
   }
 
@@ -114,7 +114,7 @@ export function createPixelEstimate(
   };
 }
 
-export function validateFileSize(file: File): void {
+export function validateFileSize(file: Pick<Blob, 'size'>): void {
   if (file.size <= 0) {
     throw new ConversionError('INVALID_FILE', 'Please choose a non-empty PDF file.');
   }

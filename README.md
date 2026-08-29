@@ -15,51 +15,19 @@ local; no PDF is uploaded to a server.
 
 There are two ways to use PPTXify:
 
-- [In your browser](#browser), with no installation.
-- [From the CLI](#cli), for repeatable local conversion in scripts and terminals.
-
-## Example
-
-After completing the local checkout and build steps below, convert a
-presentation at 300 PPI and write the result to a chosen path:
-
-```bash
-node dist-cli/cli.js presentation.pdf --ppi 300 --output presentation.pptx
-```
-
-The command renders every PDF page as a PNG and creates one full-page image slide
-per page.
-
-## Browser
-
-The browser app is the quickest way to make a presentation:
-
-1. Choose one PDF, or drag it onto the upload area.
-2. Keep the default **600 PPI**, or select another image resolution.
-3. Click **Convert to PPTX** and wait for inspection, rendering, and packaging.
-4. Click **Download PPTX**.
-
-Conversion never starts a download automatically. **Download PPTX** may be used
-again while the result is cached; **Reset** or choosing another PDF clears that
-result and its notes. During conversion, **Cancel** keeps the selected PDF
-available for another attempt.
-
-After a PDF has been inspected, changing PPI recalculates its estimate immediately.
-If a high value exceeds the safety budget, lower the PPI and retry without
-uploading the PDF again.
-
-The browser keeps the same PDF inspection while converting, so it does not repeat
-the page-count and page-size scan immediately before rendering.
+- [In your browser](#browser), with no local installation.
+- [From the CLI](#cli), after cloning and building this repository locally.
 
 ## CLI
 
 The CLI performs the same PDF → PNG → image-based PPTX conversion locally with
 Node.js. It never overwrites the input PDF and writes the final output atomically.
 
-### Local checkout
+### Requirements and local build
 
-PPTXify is not currently published to the npm registry. Use a local clone of
-this repository instead:
+Node.js 22 or newer is required. PPTXify is not currently published to the npm
+registry. The supported CLI workflow is to clone this repository, install its
+locked dependencies locally, and build the command-line output:
 
 ```bash
 git clone https://github.com/tshzhu/pptxify.git
@@ -69,28 +37,45 @@ npm run build:all
 ```
 
 `npm ci` installs the exact dependency versions recorded in `package-lock.json`
-into this checkout. It does not install a global `pptxify` command. The
-`private` package metadata also prevents accidental npm publication. The build
-creates the browser site in `dist/` and the local Node.js CLI in `dist-cli/`.
+into this checkout; it does not install a global `pptxify` command. The package
+is marked private to prevent accidental npm publication.
 
-Use `npm run build` when you only need the browser site, `npm run build:cli` when
-you only need the CLI, or `npm run build:all` to build both outputs.
+The build scripts produce these outputs:
 
-### Basic usage
+| Command | Output |
+| --- | --- |
+| `npm run build` | Browser site in `dist/` |
+| `npm run build:cli` | Node.js CLI in `dist-cli/` |
+| `npm run build:all` | Both outputs |
+
+### Usage
+
+Run the built CLI from the repository root:
 
 ```bash
 node dist-cli/cli.js presentation.pdf
 ```
 
-By default this uses **600 PPI** and writes
+The CLI executable name declared in `package.json` is `pptxify`, but the package
+is not published or globally installed. From a clone, invoke the built entry
+point with `node dist-cli/cli.js`.
+
+By default, conversion uses **600 PPI** and writes
 `presentation-600ppi.pptx` next to the input file. Progress is printed to stderr;
 the completion line with the output path is printed to stdout.
 
-The CLI executable name declared in `package.json` is `pptxify`, but this
-repository does not publish or globally install that executable. From a clone,
-invoke the built entry point with `node dist-cli/cli.js` as shown above.
+### Input and output behavior
 
-### CLI options
+- Exactly one input PDF path is accepted.
+- The input PDF is never replaced.
+- If `--output` is omitted, the output is written beside the input as
+  `<input-name>-<PPI>ppi.pptx`.
+- Output files are written atomically, so a failed conversion does not replace
+  an existing file.
+- `--notes` patches speaker notes after rendering without rendering the PDF a
+  second time.
+
+### Options
 
 ```text
 -p, --ppi <number>
@@ -112,7 +97,26 @@ invoke the built entry point with `node dist-cli/cli.js` as shown above.
     Print the version declared by this local checkout's package.json.
 ```
 
-Examples:
+Value options accept either `--option=value` or `--option value`.
+
+### Page notes
+
+The `--notes` file uses the same syntax as the browser editor:
+
+```markdown
+## page: 1
+Opening note
+
+## page: 4
+Note for page four
+```
+
+`N` is a 1-based PDF page number. Empty note sections, duplicate or out-of-range
+pages, malformed headings, and text before the first heading are rejected before
+the output is replaced. `.txt` and `.md` files are read as UTF-8. Only the new
+`## page: N` syntax is supported.
+
+### Command examples
 
 ```bash
 # 600 PPI, default output name
@@ -128,27 +132,69 @@ node dist-cli/cli.js slides.pdf --notes speaker-notes.md
 node dist-cli/cli.js slides.pdf -p 150 -o slides-150.pptx --quiet
 ```
 
-The process exits with status `0` only after the PPTX has been written
-successfully. Missing or invalid input, PPI errors, PDF validation failures,
-pixel/Canvas safety failures, malformed notes, and output write errors return a
-non-zero status. A failed conversion never replaces an existing output file.
+### Exit behavior
 
-### CLI page notes
+- `--help` and `--version` exit successfully without reading an input PDF.
+- A successful conversion returns status `0` only after the PPTX has been written.
+- Missing or invalid input, PPI errors, PDF validation failures, pixel/Canvas
+  safety failures, malformed notes, and output write errors return a non-zero
+  status.
+- Fatal errors are printed to stderr. A failed conversion never replaces an
+  existing output file.
 
-The `--notes` file uses the same syntax as the browser editor:
+## Browser
 
-```markdown
-## page: 1
-Opening note
+The browser app is the quickest way to make a presentation. Open
+<https://tshzhu.github.io/pptxify/>, then:
 
-## page: 4
-Note for page four
-```
+1. Choose one PDF, or drag it onto the upload area.
+2. Keep the default **600 PPI**, or select another image resolution.
+3. Click **Convert to PPTX** and wait for inspection, rendering, and packaging.
+4. Click **Download PPTX**.
 
-`N` is a 1-based PDF page number. Empty note sections, duplicate or out-of-range
-pages, malformed headings, and text before the first heading are rejected before
-the output is replaced. `.txt` and `.md` files are read as UTF-8. Applying notes
-patches the generated PPTX and does not render the PDF a second time.
+Conversion never starts a download automatically. **Download PPTX** may be used
+again while the result is cached; **Reset** or choosing another PDF clears that
+result and its notes. During conversion, **Cancel** keeps the selected PDF
+available for another attempt.
+
+After a PDF has been inspected, changing PPI recalculates its estimate immediately.
+If a high value exceeds the safety budget, lower the PPI and retry without
+uploading the PDF again. The browser reuses the successful PDF inspection while
+converting, so it does not repeat the page-count and page-size scan immediately
+before rendering.
+
+The notes editor accepts the same `## page: N` syntax described in [Page notes](#page-notes).
+All browser processing stays in the browser, and the generated PPTX is downloaded
+only after an explicit user action.
+
+## Supported input and output
+
+Every output slide contains one full-page PNG. This preserves the visual
+appearance of fonts, equations, vector artwork, figures, and Beamer styling
+without requiring LaTeX or PowerPoint on the server. The PowerPoint slide size
+matches the PDF page size rather than forcing a fixed 16:9 or 4:3 layout.
+
+The trade-off is that PDF content is flattened. Text, hyperlinks, animations,
+and individual graphics are not editable PowerPoint objects. Beamer overlays
+already represented as separate PDF pages become separate slides.
+
+PPTXify currently enforces these input and safety limits in both browser and CLI
+paths:
+
+- Exactly one non-empty PDF is processed at a time, and the file must have a PDF
+  signature.
+- Maximum PDF size: **100 MB**.
+- Maximum page count: **120 pages**.
+- Every page must have the same dimensions as page 1.
+- Password-protected PDFs are not supported.
+- PPI must be an integer from **1 to 600**.
+- Total estimated output: at most **400 MP** (400 million pixels across all
+  pages).
+- Single-page Canvas size: at most **8192 px per side**.
+
+If the total estimate is too large, lower the PPI, use fewer pages, or split the
+PDF. If a page exceeds the per-side Canvas limit, lower the PPI. Browser memory,
+CLI memory, and final PPTX size also depend on PDF contents and PNG compressibility.
 
 ## How conversion works
 
@@ -169,86 +215,42 @@ patches the generated PPTX and does not render the PDF a second time.
 6. **Patch notes when requested.** JSZip reads or updates the PPTX speaker-note
    XML without rerendering the PDF or changing the slide images.
 
-All steps are local. No PDF, rendered page, note, or generated PPTX is uploaded
-to a server.
+All conversion steps are local. No PDF, rendered page, note, or generated PPTX is
+uploaded to a server.
 
 PPTX packaging stores the rendered PNGs without applying a second ZIP compression
 pass. PNG is already compressed, so this keeps conversion responsive while
 leaving image bytes and visual quality unchanged.
 
-## Output model and trade-offs
+## Development
 
-Every output slide contains one full-page PNG. This preserves the visual
-appearance of fonts, equations, vector artwork, figures, and Beamer styling
-without requiring LaTeX or PowerPoint on the server. The PowerPoint slide size
-matches the PDF page size rather than forcing a fixed 16:9 or 4:3 layout.
-
-The trade-off is that PDF content is flattened. Text, hyperlinks, animations,
-and individual graphics are not editable PowerPoint objects. Beamer overlays
-already represented as separate PDF pages become separate slides.
-
-## Input validation and browser safety limits
-
-PPTXify currently enforces these checks:
-
-- Exactly one non-empty PDF is processed at a time, and the file must have a PDF
-  signature.
-- Maximum PDF size: **100 MB**.
-- Maximum page count: **120 pages**.
-- Every page must have the same dimensions as page 1.
-- Password-protected PDFs are not supported.
-- PPI must be an integer from **1 to 600**.
-- Total estimated output: at most **400 MP** (400 million pixels across all
-  pages).
-- Single-page Canvas size: at most **8192 px per side**.
-
-If the total estimate is too large, lower the PPI, use fewer pages, or split the
-PDF. If a page exceeds the per-side Canvas limit, lower the PPI. Browser memory,
-CLI memory, and final PPTX size also depend on PDF contents and PNG compressibility.
-
-## Local development
-
-Node.js 22 or newer is required.
+Node.js 22 or newer is required. From a clone of the repository:
 
 ```bash
 npm ci
 npm run dev
 ```
 
-Run the browser and CLI checks/builds with:
+Run the checks and builds with:
 
 ```bash
 npm run check
+npm run build
+npm run build:cli
 npm run build:all
 ```
 
-Preview the browser production build with:
-
-```bash
-npm run preview
-```
-
-The Vite build uses relative asset URLs so the same static output works locally
-and below the repository path on GitHub Pages. The CLI build writes the runnable
-Node artifact to `dist-cli/`.
+`npm run dev` starts the Vite development server. `npm run preview` serves the
+production browser build locally after `npm run build`. The Vite build uses
+relative asset URLs so the same static output works locally and below the
+repository path on GitHub Pages. The CLI build writes the runnable Node artifact
+to `dist-cli/`.
 
 ## GitHub Pages
 
-The workflow in `.github/workflows/pages.yml` installs dependencies, builds
-`dist/`, uploads the Pages artifact, and deploys it whenever `main` is updated.
-
-## CLI development
-
-Build and run the CLI directly from the local checkout:
-
-```bash
-npm run build:cli
-node dist-cli/cli.js --help
-node dist-cli/cli.js presentation.pdf --ppi 300 --output presentation.pptx
-```
-
-The CLI uses PDF.js's Node build and `@napi-rs/canvas`; no browser, LaTeX,
-PowerPoint, or server is required.
+The workflow in `.github/workflows/pages.yml` runs `npm ci`, builds the browser
+site with `npm run build`, uploads `dist/`, and deploys it whenever `main` is
+updated. It does not publish an npm package.
 
 ## Technology
 
