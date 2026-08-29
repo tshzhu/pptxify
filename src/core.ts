@@ -50,6 +50,45 @@ export async function mapWithConcurrency<T>(
   return results;
 }
 
+/**
+ * Render indexed work with a small bounded window, consuming results in input
+ * order so callers do not have to retain the entire document in memory.
+ */
+export async function processInOrder<T>(
+  count: number,
+  concurrency: number,
+  worker: (index: number) => Promise<T>,
+  consume: (index: number, value: T) => void | Promise<void>,
+): Promise<void> {
+  if (count <= 0) return;
+
+  const inFlight = new Map<number, Promise<T>>();
+  let nextToStart = 0;
+  const windowSize = Math.max(1, Math.min(count, Math.floor(concurrency)));
+  const startMore = (): void => {
+    while (nextToStart < count && inFlight.size < windowSize) {
+      const index = nextToStart;
+      nextToStart += 1;
+      inFlight.set(index, worker(index));
+    }
+  };
+
+  startMore();
+  try {
+    for (let index = 0; index < count; index += 1) {
+      const promise = inFlight.get(index);
+      if (!promise) throw new Error(`Missing work item ${index}.`);
+      const value = await promise;
+      inFlight.delete(index);
+      await consume(index, value);
+      startMore();
+    }
+  } catch (error) {
+    await Promise.allSettled(inFlight.values());
+    throw error;
+  }
+}
+
 export function inspectionProgressPercent(current: number, total: number): number {
   return current === total ? 10 : 5 + Math.round((current / total) * 5);
 }

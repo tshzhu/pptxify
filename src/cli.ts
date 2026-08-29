@@ -258,7 +258,7 @@ async function buildPptx(
     pptx.title = 'PDF presentation';
 
     const concurrency = chooseRenderConcurrency(estimate.pixels, availableParallelism());
-  const imageData = await mapWithConcurrency(pdf.numPages, concurrency, async (index) => {
+    const imageData = await mapWithConcurrency(pdf.numPages, concurrency, async (index) => {
       const pageNumber = index + 1;
       const page = await pdf.getPage(pageNumber);
       try {

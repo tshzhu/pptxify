@@ -24,7 +24,7 @@ import {
   inspectionProgressPercent,
   inspectPdfDocument,
   chooseRenderConcurrency,
-  mapWithConcurrency,
+  processInOrder,
   throwIfAborted,
 } from './core.js';
 
@@ -245,22 +245,18 @@ export async function convertPdfToPptx(
 
     const geometry = estimate;
     const concurrency = chooseRenderConcurrency(geometry.pixels);
-    let completedPages = 0;
-    const imageData = await mapWithConcurrency(pdf.numPages, concurrency, async (index) => {
+    await processInOrder(pdf.numPages, concurrency, async (index) => {
       const pageNumber = index + 1;
       report(options.onProgress, 'rendering', pageNumber - 1, pdf.numPages, 10 + Math.round((index / pdf.numPages) * 80), `Rendering page ${pageNumber}/${pdf.numPages}…`);
       const page = await pdf.getPage(pageNumber);
       try {
-        const image = await renderPageToPng(page, geometry, options.signal);
-        completedPages += 1;
-        report(options.onProgress, 'rendering', completedPages, pdf.numPages, 10 + Math.round((completedPages / pdf.numPages) * 80), `Rendered page ${pageNumber}/${pdf.numPages}.`);
-        return image;
+        return await renderPageToPng(page, geometry, options.signal);
       } finally {
         await page.cleanup();
       }
-    });
-    for (let pageNumber = 1; pageNumber <= imageData.length; pageNumber += 1) {
-      const image = imageData[pageNumber - 1];
+    }, async (index, image) => {
+      const pageNumber = index + 1;
+      report(options.onProgress, 'rendering', pageNumber, pdf.numPages, 10 + Math.round((pageNumber / pdf.numPages) * 80), `Rendered page ${pageNumber}/${pdf.numPages}.`);
       const slide = pptx.addSlide();
       slide.background = { color: 'FFFFFF' };
       slide.addImage({
@@ -275,7 +271,7 @@ export async function convertPdfToPptx(
       // Keep an empty notes container in the cached PPTX. The optional notes
       // stage patches these XML parts later without rerendering the PDF.
       slide.addNotes('');
-    }
+    });
 
     throwIfAborted(options.signal);
     report(options.onProgress, 'packaging', pdf.numPages, pdf.numPages, 92, 'Packaging PPTX…');
