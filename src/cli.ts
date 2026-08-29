@@ -2,6 +2,7 @@
 
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname, extname, join, parse, resolve } from 'node:path';
+import { availableParallelism } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { createCanvas } from '@napi-rs/canvas';
@@ -16,8 +17,10 @@ import PptxGenJS from 'pptxgenjs';
 
 import {
   estimateDocument,
+  chooseRenderConcurrency,
   inspectionProgressPercent,
   inspectPdfDocument,
+  mapWithConcurrency,
   type DocumentInspection,
 } from './core.js';
 import {
@@ -254,26 +257,30 @@ async function buildPptx(
     pptx.subject = `Rasterized at ${ppi} PPI`;
     pptx.title = 'PDF presentation';
 
-    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+    const concurrency = chooseRenderConcurrency(estimate.pixels, availableParallelism());
+  const imageData = await mapWithConcurrency(pdf.numPages, concurrency, async (index) => {
+      const pageNumber = index + 1;
       const page = await pdf.getPage(pageNumber);
       try {
         log(`Rendering page ${pageNumber}/${pdf.numPages}…`, quiet);
-        const imageData = await renderPageToDataUrl(page, estimate);
-        const slide = pptx.addSlide();
-        slide.background = { color: 'FFFFFF' };
-        slide.addImage({
-          data: imageData,
-          x: 0,
-          y: 0,
-          w: estimate.widthIn,
-          h: estimate.heightIn,
-          altText: `PDF page ${pageNumber}`,
-          objectName: `PDF page ${pageNumber}`,
-        });
-        slide.addNotes('');
+        return await renderPageToDataUrl(page, estimate);
       } finally {
         await page.cleanup();
       }
+    });
+    for (let pageNumber = 1; pageNumber <= imageData.length; pageNumber += 1) {
+      const slide = pptx.addSlide();
+      slide.background = { color: 'FFFFFF' };
+      slide.addImage({
+        data: imageData[pageNumber - 1],
+        x: 0,
+        y: 0,
+        w: estimate.widthIn,
+        h: estimate.heightIn,
+        altText: `PDF page ${pageNumber}`,
+        objectName: `PDF page ${pageNumber}`,
+      });
+      slide.addNotes('');
     }
     const output = await pptx.write({ outputType: 'nodebuffer', compression: true });
     return { output: output as Buffer, inspection };

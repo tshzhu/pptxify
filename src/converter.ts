@@ -23,6 +23,8 @@ import {
   estimateDocument,
   inspectionProgressPercent,
   inspectPdfDocument,
+  chooseRenderConcurrency,
+  mapWithConcurrency,
   throwIfAborted,
 } from './core.js';
 
@@ -242,44 +244,37 @@ export async function convertPdfToPptx(
     pptx.title = file.name.replace(/\.[^/.]+$/, '') || 'PDF presentation';
 
     const geometry = estimate;
-    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
-      throwIfAborted(options.signal);
-      report(
-        options.onProgress,
-        'rendering',
-        pageNumber - 1,
-        pdf.numPages,
-        10 + Math.round(((pageNumber - 1) / pdf.numPages) * 80),
-        `Rendering page ${pageNumber}/${pdf.numPages}…`,
-      );
+    const concurrency = chooseRenderConcurrency(geometry.pixels);
+    let completedPages = 0;
+    const imageData = await mapWithConcurrency(pdf.numPages, concurrency, async (index) => {
+      const pageNumber = index + 1;
+      report(options.onProgress, 'rendering', pageNumber - 1, pdf.numPages, 10 + Math.round((index / pdf.numPages) * 80), `Rendering page ${pageNumber}/${pdf.numPages}…`);
       const page = await pdf.getPage(pageNumber);
       try {
-        const imageData = await renderPageToPng(page, geometry, options.signal);
-        const slide = pptx.addSlide();
-        slide.background = { color: 'FFFFFF' };
-        slide.addImage({
-          data: imageData,
-          x: 0,
-          y: 0,
-          w: estimate.widthIn,
-          h: estimate.heightIn,
-          altText: `PDF page ${pageNumber}`,
-          objectName: `PDF page ${pageNumber}`,
-        });
-        // Keep an empty notes container in the cached PPTX. The optional notes
-        // stage patches these XML parts later without rerendering the PDF.
-        slide.addNotes('');
+        const image = await renderPageToPng(page, geometry, options.signal);
+        completedPages += 1;
+        report(options.onProgress, 'rendering', completedPages, pdf.numPages, 10 + Math.round((completedPages / pdf.numPages) * 80), `Rendered page ${pageNumber}/${pdf.numPages}.`);
+        return image;
       } finally {
         await page.cleanup();
       }
-      report(
-        options.onProgress,
-        'rendering',
-        pageNumber,
-        pdf.numPages,
-        10 + Math.round((pageNumber / pdf.numPages) * 80),
-        `Rendered page ${pageNumber}/${pdf.numPages}.`,
-      );
+    });
+    for (let pageNumber = 1; pageNumber <= imageData.length; pageNumber += 1) {
+      const image = imageData[pageNumber - 1];
+      const slide = pptx.addSlide();
+      slide.background = { color: 'FFFFFF' };
+      slide.addImage({
+        data: image,
+        x: 0,
+        y: 0,
+        w: estimate.widthIn,
+        h: estimate.heightIn,
+        altText: `PDF page ${pageNumber}`,
+        objectName: `PDF page ${pageNumber}`,
+      });
+      // Keep an empty notes container in the cached PPTX. The optional notes
+      // stage patches these XML parts later without rerendering the PDF.
+      slide.addNotes('');
     }
 
     throwIfAborted(options.signal);

@@ -22,6 +22,34 @@ export type PageInspectionSource = {
 
 export type InspectionProgress = (current: number, total: number, detail: string) => void;
 
+const MAX_PARALLEL_PAGE_PIXELS = 4_000_000;
+
+export function chooseRenderConcurrency(pagePixels: number, availableWorkers?: number): number {
+  const workers = availableWorkers ?? (
+    typeof navigator === 'undefined' ? 1 : Math.max(1, navigator.hardwareConcurrency || 1)
+  );
+  return workers >= 2 && Number.isFinite(pagePixels) && pagePixels > 0 && pagePixels <= MAX_PARALLEL_PAGE_PIXELS ? 2 : 1;
+}
+
+export async function mapWithConcurrency<T>(
+  count: number,
+  concurrency: number,
+  worker: (index: number) => Promise<T>,
+): Promise<T[]> {
+  const results = new Array<T>(count);
+  let next = 0;
+  async function run(): Promise<void> {
+    while (true) {
+      const index = next;
+      next += 1;
+      if (index >= count) return;
+      results[index] = await worker(index);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.max(1, Math.min(count, Math.floor(concurrency))) }, run));
+  return results;
+}
+
 export function inspectionProgressPercent(current: number, total: number): number {
   return current === total ? 10 : 5 + Math.round((current / total) * 5);
 }
