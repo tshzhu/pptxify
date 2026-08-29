@@ -173,7 +173,7 @@ async function renderPageToPng(
   canvas.width = geometry.pixelWidth;
   canvas.height = geometry.pixelHeight;
 
-  const context = canvas.getContext('2d', { alpha: false });
+  const context = canvas.getContext('2d', { alpha: false, desynchronized: true });
   if (!context) {
     throw new ConversionError('CANVAS_UNAVAILABLE', 'This browser cannot create a 2D canvas.');
   }
