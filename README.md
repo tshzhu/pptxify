@@ -1,6 +1,6 @@
-# pptxify
+# PPTXify
 
-**pptxify** converts a PDF presentation into a high-quality, image-based
+**PPTXify** converts a PDF presentation into a high-quality, image-based
 PowerPoint file entirely in your browser or from a local Node.js CLI:
 
 ```text
@@ -13,7 +13,7 @@ local; no PDF is uploaded to a server.
 
 [Try it out in your browser](https://tshzhu.github.io/pptxify/)
 
-There are two ways to use pptxify:
+There are two ways to use PPTXify:
 
 - [In your browser](#browser), with no installation.
 - [From the CLI](#cli), for repeatable local conversion in scripts and terminals.
@@ -96,7 +96,7 @@ the completion line with the output path is printed to stdout.
     Show the complete command help.
 
 -v, --version
-    Print the installed pptxify version.
+    Print the installed PPTXify version.
 ```
 
 Examples:
@@ -176,7 +176,7 @@ already represented as separate PDF pages become separate slides.
 
 ## Input validation and browser safety limits
 
-pptxify currently enforces these checks:
+PPTXify currently enforces these checks:
 
 - Exactly one non-empty PDF is processed at a time, and the file must have a PDF
   signature.
