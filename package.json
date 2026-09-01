@@ -1,7 +1,6 @@
 {
   "name": "pptxify",
-  "version": "0.1.0",
-  "private": true,
+  "version": "1.0.0",
   "description": "Convert PDF pages to high-quality image-based PPTX files in the browser or with the local CLI.",
   "homepage": "https://tshzhu.github.io/pptxify/",
   "repository": {
@@ -9,6 +8,12 @@
     "url": "git+https://github.com/tshzhu/pptxify.git"
   },
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=22"
+  },
   "type": "module",
   "bin": {
     "pptxify": "dist-cli/cli.js"
@@ -24,13 +29,14 @@
     "build": "tsc --noEmit && vite build",
     "build:cli": "tsc -p tsconfig.cli.json",
     "build:all": "npm run build && npm run build:cli",
-    "prepare": "npm run build:cli",
+    "pack:check": "node scripts/check-package.mjs",
+    "prepublishOnly": "npm run check && npm run build:cli && npm run pack:check",
     "preview": "vite preview",
     "check": "tsc --noEmit"
   },
   "dependencies": {
     "@napi-rs/canvas": "0.1.100",
-    "@xmldom/xmldom": "0.8.11",
+    "@xmldom/xmldom": "0.8.15",
     "jszip": "3.10.1",
     "pdfjs-dist": "5.4.624",
     "pptxgenjs": "4.0.1"

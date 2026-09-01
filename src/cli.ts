@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 
 import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import { dirname, extname, join, parse, resolve } from 'node:path';
 import { availableParallelism } from 'node:os';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { pathToFileURL } from 'node:url';
 
 import { createCanvas } from '@napi-rs/canvas';
+import packageJson from '../package.json' with { type: 'json' };
 import {
   getDocument,
   GlobalWorkerOptions,
@@ -33,8 +35,9 @@ import {
 import { annotatePptxWithNotes } from './pptx-notes.js';
 import { parsePageNotes } from './notes.js';
 
-const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const PDFJS_ROOT = join(PACKAGE_ROOT, 'node_modules', 'pdfjs-dist');
+const require = createRequire(import.meta.url);
+const PDFJS_ROOT = dirname(require.resolve('pdfjs-dist/package.json'));
+const PACKAGE_VERSION = packageJson.version;
 const DEFAULT_PPI = 600;
 const HELP = `Usage: pptxify <input.pdf> [options]
 
@@ -69,11 +72,6 @@ function log(message: string, quiet: boolean): void {
 function fail(message: string, code = 2): never {
   process.stderr.write(`pptxify: ${message}\n`);
   process.exit(code);
-}
-
-async function readPackageVersion(): Promise<string> {
-  const packageJson = JSON.parse(await readFile(join(PACKAGE_ROOT, 'package.json'), 'utf8')) as { version?: string };
-  return packageJson.version ?? 'unknown';
 }
 
 function parseArgs(argv: string[]): CliOptions {
@@ -326,7 +324,7 @@ async function applyNotesFile(base: Uint8Array | Buffer, notesPath: string, page
 async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
   if (options.inputPath === '__VERSION__') {
-    process.stdout.write(`${await readPackageVersion()}\n`);
+    process.stdout.write(`${PACKAGE_VERSION}\n`);
     return;
   }
   const inputPath = resolve(options.inputPath);

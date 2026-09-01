@@ -18,27 +18,29 @@ There are two ways to use PPTXify:
 
 ## CLI
 
-### Build and usage
+### Installation and usage
 
-Node.js 22 or newer is required. PPTXify is not published to the npm registry;
-the supported workflow is to clone and build this repository locally.
+Node.js 22 or newer is required. The published npm package contains only the CLI
+build and its package metadata; it does not contain the browser application or
+website assets.
+
+Install the command globally:
 
 ```sh
-git clone https://github.com/tshzhu/pptxify.git
-cd pptxify
-npm ci
-npm run build:cli
-node dist-cli/cli.js presentation.pdf
+npm install --global pptxify@latest
+pptxify presentation.pdf
 ```
 
-`npm ci` installs the versions recorded in `package-lock.json` into the local
-checkout. It does not install a global `pptxify` command. The package is marked
-private to prevent accidental npm publication.
+Run it once without a global install:
+
+```sh
+npx pptxify@latest presentation.pdf
+```
 
 Usage summary:
 
 ```text
-node dist-cli/cli.js <input.pdf> [options]
+pptxify <input.pdf> [options]
 ```
 
 Exactly one input PDF is accepted. By default the CLI renders at **600 PPI** and
@@ -66,7 +68,7 @@ file.
     Show the complete command help.
 
 -v, --version
-    Show the version declared by this checkout's package.json.
+    Show the CLI version.
 ```
 
 Value options accept either `--option=value` or `--option value`.
@@ -90,15 +92,22 @@ generated PPTX without rendering the PDF a second time.
 
 ### Command examples
 
+Choose a different resolution and output path:
+
 ```sh
-# Choose a different resolution and output path
-node dist-cli/cli.js slides.pdf --ppi 300 --output build/slides.pptx
+pptxify slides.pdf --ppi 300 --output build/slides.pptx
+```
 
-# Apply speaker notes
-node dist-cli/cli.js slides.pdf --notes speaker-notes.md
+Apply speaker notes:
 
-# Use short options and suppress progress output
-node dist-cli/cli.js slides.pdf -p 150 -o slides-150.pptx --quiet
+```sh
+pptxify slides.pdf --notes speaker-notes.md
+```
+
+Use short options and suppress progress output:
+
+```sh
+pptxify slides.pdf -p 150 -o slides-150.pptx --quiet
 ```
 
 ### Exit behavior
@@ -172,6 +181,7 @@ npm run check
 npm run build
 npm run build:cli
 npm run build:all
+npm run pack:check
 npm run preview
 ```
 
@@ -180,11 +190,13 @@ npm run preview
 - `npm run build` creates the browser site in `dist/`.
 - `npm run build:cli` creates the Node.js CLI in `dist-cli/`.
 - `npm run build:all` creates both outputs.
+- `npm run pack:check` verifies that the npm tarball contains only the CLI build,
+  README, LICENSE, and package metadata.
 - `npm run preview` serves the production browser build locally after
   `npm run build`.
 
 The GitHub Pages workflow runs `npm ci` and `npm run build`, uploads `dist/`, and
-deploys it whenever `main` is updated. It does not publish an npm package.
+deploys it whenever `main` is updated. It does not publish the npm package.
 
 ## Technology
 
