@@ -20,9 +20,9 @@ There are two ways to use PPTXify:
 
 ### Installation and usage
 
-Node.js 22 or newer is required. The published npm package contains only the CLI
-build and its package metadata; it does not contain the browser application or
-website assets.
+Node.js 22 or newer is required. The [`pptxify` npm package](https://www.npmjs.com/package/pptxify)
+contains only the CLI build and its package metadata; it does not contain the
+browser application or website assets.
 
 Install the command globally:
 
@@ -196,7 +196,8 @@ npm run preview
   `npm run build`.
 
 The GitHub Pages workflow runs `npm ci` and `npm run build`, uploads `dist/`, and
-deploys it whenever `main` is updated. It does not publish the npm package.
+deploys it whenever `main` is updated. npm releases are separate: the Trusted
+Publishing workflow runs only when a matching `v*` Git tag is pushed.
 
 ## Technology
 

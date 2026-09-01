@@ -11,6 +11,7 @@ example/
 # Local planning only; never publish this file.
 /GOAL.md
 !README.md
+!AGENTS.md
 
 # Local environment and tooling state
 .env
